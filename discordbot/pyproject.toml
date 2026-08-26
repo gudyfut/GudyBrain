@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gudybot"
+version = "1.0.0"
+description = "Bot de gravação, transcrição e análise de chamadas do Discord"
+requires-python = ">=3.11"
+
+[project.scripts]
+gudybot = "gudybot.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gudybot*"]

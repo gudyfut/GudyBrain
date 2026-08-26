@@ -1,0 +1,34 @@
+{
+  "name": "gudybrain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Assistente pessoal com agentes de IA e memória Markdown",
+  "workspaces": [
+    "web_interface"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @gudybrain/web-interface",
+    "build": "npm run build --workspace @gudybrain/web-interface",
+    "serve": "npm run serve --workspace @gudybrain/web-interface",
+    "chat": "tsx src/cli/main.ts",
+    "start": "npm run start --workspace @gudybrain/web-interface",
+    "agent": "tsx src/cli/main.ts",
+    "call:analyze": "tsx src/cli/analyze-call.ts",
+    "call:review": "tsx src/cli/review-call.ts",
+    "memory:init": "tsx src/dev/memory-init.ts",
+    "check:agents": "tsx src/dev/validate-agents.ts",
+    "check:calls": "tsx src/dev/validate-call-analysis.ts",
+    "check:memory": "tsx src/dev/validate-memory.ts",
+    "check:curation": "npm run check:curation --workspace @gudybrain/web-interface",
+    "smoke:api": "tsx src/dev/smoke-api.ts",
+    "test": "npm run typecheck && npm run check:agents && npm run check:memory && npm run check:calls && npm run check:curation",
+    "typecheck": "npm run typecheck:core && npm run typecheck --workspace @gudybrain/web-interface",
+    "typecheck:core": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

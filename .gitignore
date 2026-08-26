@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+web_interface/.next/
+*.tsbuildinfo
+.env
+*.log
+
+# Bundle pessoal de memória: dados sensíveis, nunca versionados.
+# `npm run memory:init` cria a versão de demonstração a partir de memory-seed/.
+memory/
+
+# Mapeamento local entre contas do Discord e pessoas da memória.
+discordbot/config/identidades_discord.json
+
+# Saida acidental criada se o prompt ">> -Session" for copiado no PowerShell.
+/-Session

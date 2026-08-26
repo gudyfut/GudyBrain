@@ -1,0 +1,6 @@
+-e .
+py-cord[voice] @ git+https://github.com/Pycord-Development/pycord.git@326b72acc8d1d952ac002fe07ca65581cf5952bc
+PyNaCl>=1.5.0,<2.0
+python-dotenv>=1.0.0,<2.0
+aiohttp>=3.9.0,<4.0
+groq>=0.31.0,<2.0

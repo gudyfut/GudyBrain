@@ -1,0 +1,30 @@
+{
+  "name": "@gudybrain/web-interface",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Interface web local do GudyBrain",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "start": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "serve": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check:curation": "tsx src/dev/validate-web-curation.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^1.30.0",
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

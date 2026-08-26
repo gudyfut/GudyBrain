@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "canonical": "V3ga House",
+      "variants": [
+        "Vega House",
+        "Vegha House",
+        "Vagua House",
+        "Vega Hause"
+      ]
+    },
+    {
+      "canonical": "V3ga",
+      "variants": [
+        "Vega",
+        "Vegha",
+        "Vagua",
+        "Vêga"
+      ]
+    }
+  ]
+}
