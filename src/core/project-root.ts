@@ -28,7 +28,7 @@ export function resolveProjectPath(...segments: string[]): string {
 }
 
 function isProjectRoot(directory: string): boolean {
-  return existsSync(resolve(directory, "memory", "index.md"))
+  return existsSync(resolve(directory, "package.json"))
     && existsSync(resolve(directory, "src", "agents", "registry.ts"))
-    && existsSync(resolve(directory, "discordbot"));
+    && existsSync(resolve(directory, "discordbot", "pyproject.toml"));
 }
