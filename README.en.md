@@ -1,6 +1,6 @@
 # GudyBrain
 
-[![CI](https://github.com/MuriloRFM/GudyBrain/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
+[![CI](https://github.com/gudyfut/GudyBrain/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Leia em português](https://img.shields.io/badge/leia-portugu%C3%AAs-blue.svg)](./README.md)
 
@@ -41,7 +41,7 @@ Requirements: [Node.js](https://nodejs.org) 20+. For the Discord bot also
 and a Discord bot account.
 
 ```bash
-git clone https://github.com/MuriloRFM/GudyBrain.git
+git clone https://github.com/gudyfut/GudyBrain.git
 cd GudyBrain
 npm install
 
