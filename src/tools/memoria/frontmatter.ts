@@ -7,6 +7,8 @@
  * filtramos por eles. Se um dia precisar de YAML real, troque por uma lib.
  */
 
+import { interpretarValorMemoria } from "./valores-yaml";
+
 export interface Frontmatter {
   readonly campos: Record<string, string | string[] | null>;
   readonly corpo: string;
@@ -40,22 +42,10 @@ export function parseFrontmatter(conteudo: string): Frontmatter {
     // Objeto inline (ex.: generated: { by: ..., at: ... }) — ignora.
     if (valorCru.startsWith("{")) continue;
 
-    // Lista inline: [a, b, c]
-    if (valorCru.startsWith("[")) {
-      let inner = valorCru.slice(1);
-      if (inner.endsWith("]")) inner = inner.slice(0, -1);
-      const lista = inner
-        .split(",")
-        .map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
-        .filter((s) => s.length > 0);
-      campos[chave] = lista;
-      continue;
-    }
-
-    // Escalar
-    campos[chave] = valorCru.replace(/^['"]|['"]$/g, "");
+    const parsed = interpretarValorMemoria(valorCru);
+    campos[chave] = parsed === null ? null : Array.isArray(parsed)
+      ? parsed as string[] : String(parsed);
   }
-
   return { campos, corpo: match[2] };
 }
 

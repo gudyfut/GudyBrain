@@ -227,9 +227,9 @@ gravacoes/
 └── 20260807-185240_a_20260807-185312/
     ├── session.json
     └── tracks/
-        ├── Gudy_ID_parte001.wav
-        ├── Alex_ID_parte001.wav
-        └── Alex_ID_parte002.wav
+        ├── Alice_ID_parte001.wav
+        ├── Bruno_ID_parte001.wav
+        └── Bruno_ID_parte002.wav
 ```
 
 O nome registra data e horário de início e fim, incluindo segundos. Durante a chamada a pasta começa com `gravando_`; ela é renomeada automaticamente ao finalizar. Se ainda houver colisão, o bot acrescenta `-2`, `-3` e assim por diante.
@@ -289,13 +289,15 @@ python -m gudybot transcrever SUA_SESSAO `
 
 Uma execução interrompida pode ser retomada com o mesmo comando. Cada trecho concluído é salvo imediatamente e reutilizado. `--forcar` ignora o cache e transcreve tudo novamente.
 
-O arquivo `config/glossario_transcricao.txt` contém nomes e termos cuja grafia deve ser preservada. Edite-o livremente, mantendo uma lista curta. Os nomes dos participantes registrados no Discord são acrescentados automaticamente ao contexto.
+O arquivo local `config/glossario_transcricao.txt` contém nomes e termos cuja grafia deve ser preservada. Ele é ignorado pelo Git. Crie-o a partir de `config/glossario_transcricao.example.txt`, mantendo uma lista curta. Os nomes dos participantes registrados no Discord são acrescentados automaticamente ao contexto.
 
-O arquivo `config/correcoes_transcricao.json` mapeia variantes reconhecidas de
+O arquivo local `config/correcoes_transcricao.json`, também ignorado pelo Git,
+mapeia variantes reconhecidas de
 um termo para sua grafia canônica. As regras são aplicadas somente a palavras ou
 expressões completas durante a montagem da timeline; variantes maiores têm
-prioridade. Por exemplo, `Vega House` vira `V3ga House` antes que `Vega` possa
-virar `V3ga`. A fala corrigida aparece em `text`, o valor original permanece em
+prioridade. Crie-o a partir de `config/correcoes_transcricao.example.json`.
+Uma variante com duas palavras é aplicada antes de uma variante mais curta.
+A fala corrigida aparece em `text`, o valor original permanece em
 `raw_text` e cada substituição é registrada em `transcricao-qualidade.json`.
 Alterar esse arquivo e executar novamente a transcrição remonta a timeline usando
 o cache da Groq, sem reenviar o áudio.
@@ -339,8 +341,8 @@ Arquivos finais:
 Exemplo:
 
 ```text
-[00:12:14.320 - 00:12:16.810] Bianca: O Rafa saiu da call?
-[00:12:15.950 - 00:12:18.120] Gudy: Acho que caiu a internet dele.
+[00:12:14.320 - 00:12:16.810] Alice: O Bruno saiu da call?
+[00:12:15.950 - 00:12:18.120] Carla: Acho que caiu a internet dele.
 ```
 
 Como as vozes já vêm separadas pelo Discord, nenhuma diarização é usada.

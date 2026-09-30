@@ -1,161 +1,239 @@
 # GudyBrain
 
-[![CI](https://github.com/gudyfut/GudyBrain/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
-[![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg)](./LICENSE)
-[![Read in English](https://img.shields.io/badge/read-English-blue.svg)](./README.en.md)
+Assistente pessoal com memória Markdown, curadoria humana e captura, transcrição
+e análise de chamadas do Discord.
 
-Assistente pessoal com **memória de longo prazo em Markdown**, curadoria humana
-e um pipeline completo de **gravação, transcrição e análise de calls do
-Discord**. Tudo roda localmente: a memória é sua, fica na sua máquina e nada é
-persistido sem a sua aprovação explícita.
+O chat usa **Jev para decidir e recuperar memória** e **Responses API com o plano
+ChatGPT para responder** (`gpt-6-luna` por padrão). Configure `TYPESAFE_API_KEY`
+no `.env`, abra Configurações na interface e selecione **Continue with ChatGPT**.
+Autorize o uso do plano e confira os modelos disponíveis para sua conta.
+O chat não exige chave da API OpenAI; Jev exige credencial própria. Consulte o
+[guia de configuração](docs/jev-memory.md). Chat e curadoria usam Responses API
+e Jev; calls continuam usando GLM.
 
-```text
-você ──conversa──► Gudman (agente) ──consulta──► memory/ (Markdown local)
-  │                                              ▲
-  └──aprova──► revisão humana ◄──propostas── curadores (IA) ◄──┘
-                                        ▲
-call do Discord ──► gravação ──► transcrição ──► análise ──┘
-```
+O chat também oferece entrada e resposta por voz com Gemini. Configure
+`GEMINI_API_KEY` para usar o microfone e consulte o [guia da conversa por voz](docs/voice-chat.md).
 
-## Destaques
-
-- **Memória estruturada e portátil** — cada conceito (Pessoa, Grupo, Evento,
-  Lugar, Projeto, Conhecimento) é um arquivo Markdown com YAML frontmatter, IDs
-  imutáveis e links entre registros. Leitura humana, validação automática.
-- **Curadoria humana obrigatória** — agentes de IA apenas *propõem* mudanças
-  (deltas por seção). Um preenchedor determinístico monta o documento e só a
-  revisão humana aprova a escrita. Nada é gravado por trás de você.
-- **Pipeline de calls atribuídas** — o bot do Discord grava cada participante em
-  trilha separada, transcreve via Groq (Whisper), monta a linha do tempo com
-  autoria resolvida para a memória e produz um relatório de análise com
-  evidências.
-- **Interface web local** — chat em streaming, biblioteca de memórias, bancada
-  de revisão com diff linha a linha, painel de calls e controle do bot em um
-  só lugar (`http://127.0.0.1:3000`).
-- **Arquitetura multiagente com fronteiras** — conversante, analista e curadores
-  têm prompts, modelos, limites e permissões próprios; nenhum agente pode
-  escrever na memória.
-
-## Começo rápido
-
-Requisitos: [Node.js](https://nodejs.org) 20+ e, para o bot do Discord,
-[Python](https://www.python.org) 3.11+, [FFmpeg](https://ffmpeg.org) no `PATH`
-e uma conta de bot no Discord.
-
-```powershell
-git clone https://github.com/gudyfut/GudyBrain.git
-cd GudyBrain
-npm install
-
-# 1. configure as chaves (veja .env.example)
-Copy-Item .env.example .env
-
-# 2. crie o bundle de memória de demonstração (conteúdo fictício)
-npm run memory:init
-
-# 3. inicie a interface web
-npm start
-```
-
-Abra `http://127.0.0.1:3000`. Com `GLM_API_KEY` configurada no `.env`, você já
-pode conversar com o Gudman e testar a curadoria de memória com o bundle de
-demonstração.
-
-### Interface web
-
-- **Conversar**: chat em streaming com o Gudman; o modelo ativo aparece no
-  composer e é o configurado no `.env` (`GLM_MODEL`) ou no registro de agentes.
-- **Memória**: biblioteca pesquisável, editor de Markdown e bancada de revisão
-  com diff integral por linhas.
-- **Calls**: pipeline visual `Gravada → Transcrita → Analisada → Curada`.
-- **Discord**: inicia/encerra o bot, grava e transcreve sem sair da interface.
-- **Configurações**: automações, integrações e o modelo de cada agente, sem
-  expor chaves.
-
-### CLI (compatibilidade)
-
-```powershell
-npm run chat                      # conversa com o Gudman no terminal
-npm run call:analyze -- SESSAO    # analisa um transcript existente
-npm run call:review -- SESSAO     # entrega o relatório ao curador e à revisão
-```
-
-No CLI, use `/memorizar` para curar a conversa atual, `/limpar` para nova
-sessão e `/ajuda` para os comandos.
-
-## Memória pessoal e privacidade
-
-- `memory/` é o **seu** bundle: dados pessoais que nunca são commitados (a
-  pasta está no `.gitignore`).
-- `memory-seed/` traz um bundle de demonstração **fictício** usado por
-  `npm run memory:init` para um clone funcionar de imediato.
-- Chamadas ao modelo (z.ai/GLM) recebem apenas o conteúdo necessário ao agente;
-  chaves ficam no `.env` local e nunca aparecem na interface.
-- Áudio das calls fica local; trechos são enviados à Groq apenas durante a
-  transcrição. Gravações, transcrições e o mapa Discord→memória são ignorados
-  pelo Git.
-- O servidor web escuta somente em `127.0.0.1`.
-
-Saiba mais em [docs/estrutura-memoria.md](docs/estrutura-memoria.md).
-
-## Bot do Discord
-
-Aplicação Python independente, com documentação própria em
-[discordbot/README.md](discordbot/README.md). Resumo:
-
-```powershell
-cd discordbot
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m gudybot verificar   # valida a instalação sem conectar
-python -m gudybot bot         # conecta o bot
-```
-
-Comandos no Discord: `!entrar`, `!gravar`, `!parar`, `!sair`. Após `!parar`,
-o fluxo transcrição → análise pode rodar automaticamente (opt-in) e o
-relatório chega à bancada de revisão pela interface web.
+A curadoria usa [escrita contratual por seção](docs/memory-writing.md): itens
+tipados, Markdown gerado pelo código e revisão humana com proteção contra
+sobrescrita de versões mais recentes.
+`CHAT_MODE=legacy` restaura a conversa GLM anterior.
 
 ## Estrutura do repositório
 
 ```text
-src/              núcleo TypeScript: agentes, ferramentas de memória e CLI
-web_interface/    interface Next.js (workspace próprio com BFF local)
-discordbot/       app Python de gravação, transcrição e automação de calls
-memory-seed/      bundle de memória de demonstração (fictício)
-docs/             arquitetura, schema da memória, interface e roadmap
+src/          aplicação TypeScript do Gudman
+web_interface/ aplicação Next.js e backend local da interface web
+memory/       acervo local ativo em Markdown (ignorado pelo Git)
+memory-private/ cópia local histórica do acervo anterior (ignorada pelo Git)
+memory-template/ contratos e modelos versionados, sem fatos pessoais
+discordbot/   aplicativo Python de gravação, transcrição e automação de calls
+docs/         decisões, arquitetura e roadmap
 ```
 
-## Comandos de validação
+`src` significa **source**: contém o núcleo independente da interface, incluindo
+agentes, prompts e ferramentas. A aplicação Next.js possui configuração,
+dependências, páginas, componentes e BFF próprios em `web_interface/`. Dados
+pessoais continuam fora de ambos, em `memory/`, e não são versionados.
+`memory/` contém o acervo ativo; `memory-private/` pode guardar um acervo histórico
+local. Os dois diretórios estão no `.gitignore`. Em uma instalação nova, crie
+`memory/` a partir das instruções de [memory-template/index.md](memory-template/index.md); o Git não
+entrega dados pessoais. A exclusão dos arquivos do Git vale para novos commits:
+o histórico antigo ainda pode conter versões anteriores e exige uma operação
+separada caso seja necessário apagá-las do histórico remoto.
 
-| Comando | O que faz |
-| --- | --- |
-| `npm test` | typecheck + todas as validações abaixo |
-| `npm run typecheck` | contratos TypeScript (núcleo e web) |
-| `npm run check:agents` | perfis, prompts, ferramentas e handlers |
-| `npm run check:memory` | schema, IDs e integridade do bundle local |
-| `npm run check:calls` | chunking de transcrição e relatório de análise |
-| `npm run check:curation` | revisão e aplicação segura na web |
-| `npm run build` | build otimizado do Next.js |
-| `npm run smoke:api` | chamadas reais à API GLM (diagnóstico explícito) |
+Dentro de `src/`:
 
-Suíte Python (a partir de `discordbot/`, com a `.venv` ativa):
+```text
+core/         runtime, clientes GLM/Responses, autenticação e carregamento do .env
+agents/       agentes coesos: código, instructions.md e tools/ lado a lado
+tools/        handlers locais compartilhados e regras do bundle de memória
+dev/          validações e smoke tests que não fazem parte do produto
+```
+
+Dentro de `web_interface/`:
+
+```text
+src/app/        páginas Next.js e Route Handlers
+src/components/ workspaces e componentes React
+src/server/     BFF local, filas e gerência de processos
+src/dev/        validações exclusivas da interface
+```
+
+Veja [docs/arquitetura-agentes.md](docs/arquitetura-agentes.md) para os limites
+de contexto, permissões e regras para criar agentes.
+
+As [instruções de entrada para agentes](AGENTS.md) apontam para contexto sob
+demanda e para os [ADRs](docs/adr/README.md). Mudanças complexas podem usar o
+[fluxo de especificações](docs/spec-driven-development.md) em `specs/`.
+
+## Branches
+
+- `public`: versão publicada e branch padrão do GitHub.
+- `codex/development`: desenvolvimento mais atualizado.
+- `codex/testing`: ambiente de testes, inicialmente no mesmo commit de desenvolvimento.
+
+As três branches publicam somente código, instruções e modelos. Acervos reais,
+credenciais, gravações e configurações pessoais permanecem locais.
+
+## Interface web
+
+Na raiz do repositório:
 
 ```powershell
-python -m unittest discover -s tests
+npm install
+npm start
 ```
 
-## Documentação
+Abra `http://127.0.0.1:3000`. A interface reúne:
 
-- [docs/projeto.md](docs/projeto.md) — visão geral e funcionalidades
-- [docs/arquitetura-agentes.md](docs/arquitetura-agentes.md) — fronteiras,
-  permissões e pipeline dos agentes
-- [docs/estrutura-memoria.md](docs/estrutura-memoria.md) — schema completo do
-  bundle de memória
-- [docs/interface-web.md](docs/interface-web.md) — arquitetura da interface web
-- [docs/roadmap.md](docs/roadmap.md) — estado atual e próximos passos
-- [discordbot/README.md](discordbot/README.md) — instalação e operação do bot
+- conversa com etapas de busca visíveis, resposta transmitida em fragmentos e
+  curadoria por botão;
+- biblioteca e bancada visual de aprovação de memória;
+- calls com o fluxo gravação → transcrição → análise → curadoria;
+- inicialização e controle do Discord bot;
+- automações e estado das integrações, sem mostrar as chaves.
 
-## Licença
+Use `npm run build` para validar o build de produção e `npm run serve` para
+servir esse build. O servidor escuta apenas no endereço local.
 
-Distribuído sob a licença [MIT](./LICENSE).
+Veja [docs/interface-web.md](docs/interface-web.md) para a arquitetura e o
+relatório completo da implementação. Os comandos da raiz encaminham para o
+workspace `web_interface`, portanto não é necessário entrar na pasta.
+
+## Desenvolvimento
+
+Comandos de desenvolvimento do sistema TypeScript:
+
+```powershell
+npm run typecheck
+npm run check:agents
+npm run check:memory
+npm run check:calls
+npm run check:curation
+npm test
+npm run smoke:api
+```
+
+`smoke:api` faz chamadas reais à API; os demais comandos de validação são locais.
+
+## Comandos do bot Discord
+
+O bot é um aplicativo Python independente, com ambiente e documentação
+próprios em [discordbot/README.md](discordbot/README.md).
+
+Para iniciar o bot, entre na pasta `discordbot/`, ative o ambiente virtual e
+execute:
+
+```powershell
+cd discordbot
+.\.venv\Scripts\Activate.ps1
+python -m gudybot bot
+```
+
+O entrypoint antigo `python bot.py` continua disponível por compatibilidade.
+
+Antes de conectar, valide a instalação:
+
+```powershell
+python -m gudybot verificar
+```
+
+Comandos enviados no Discord:
+
+- `!entrar`: entra no canal de voz de quem executou o comando.
+- `!gravar`: inicia uma gravação separada por participante.
+- `!parar`: encerra a gravação, salva a sessão e desconecta.
+- `!sair`: sai do canal de voz; se estiver gravando, descarta a sessão atual.
+
+As respostas operacionais são enviadas por DM para quem executou o comando.
+
+## Comandos de transcrição
+
+O comando manual para transcrever uma sessão é este, a partir de
+`discordbot/`, com a `.venv` ativa:
+
+```powershell
+python -m gudybot transcrever 20260807-185240_a_20260807-185312
+```
+
+Substitua `20260807-185240_a_20260807-185312` pelo nome real da pasta dentro de
+`discordbot/gravacoes/`.
+
+Também funciona a partir da raiz do repositório sem ativar a `.venv`:
+
+```powershell
+.\discordbot\.venv\Scripts\python.exe -m gudybot transcrever `
+  20260807-185240_a_20260807-185312
+```
+
+Opções úteis:
+
+```powershell
+python -m gudybot transcrever SUA_SESSAO --modelo whisper-large-v3-turbo
+python -m gudybot transcrever SUA_SESSAO --forcar
+```
+
+O padrão é `whisper-large-v3`. Use `--modelo whisper-large-v3-turbo` apenas para
+comparar com a versão mais rápida. `--forcar` ignora o cache local e transcreve
+tudo novamente.
+
+A montagem final remove previsões feitas nos separadores silenciosos e frases
+recorrentes configuradas em
+`discordbot/config/frases_alucinacao_transcricao.txt`. Nenhuma remoção fica
+oculta: consulte `transcricao-qualidade.json` dentro da sessão para ver texto,
+participante, horário e motivo. Baixa confiança isolada gera aviso, não remoção.
+
+Por padrão, o bot pode transcrever automaticamente depois de `!parar`. Para
+desabilitar, ajuste o `.env` da raiz e reinicie o bot:
+
+```dotenv
+DISCORDBOT_AUTO_TRANSCRIBE=false
+```
+
+O wrapper antigo ainda existe em `discordbot/scripts/transcrever_sessao.ps1`,
+mas o comando recomendado é `python -m gudybot transcrever`.
+
+## Comandos de análise de call
+
+A análise manual só inicia quando a sessão contém `conversa.txt`. Dentro de
+`discordbot/`, com a `.venv` ativa:
+
+```powershell
+python -m gudybot analisar 20260807-185240_a_20260807-185312
+```
+
+Da raiz, sem ativar o ambiente:
+
+```powershell
+.\discordbot\.venv\Scripts\python.exe -m gudybot analisar `
+  20260807-185240_a_20260807-185312
+```
+
+A análise também pode ser iniciada pela página **Calls** da interface web.
+
+O comando gera `analise-call.json` para o curador e `analise-call.md` para
+leitura humana. O início do relatório descreve a atividade, o tom, a dinâmica e
+os assuntos da call e classifica cada observação em Alto, Médio ou Baixo
+potencial. Depois da extração, uma busca local anexa possíveis conceitos já
+existentes sem alterar a evidência. O curador verifica essas pistas na memória
+atual e classifica cada item como novo, complementar, reforço, contradição, já
+memorizado, efêmero ou ambíguo antes de propor mudanças. `--forcar` ignora a
+análise e os blocos em cache.
+
+Para revisar propostas do relatório, use a curadoria na página **Calls**.
+
+Nenhuma análise escreve na memória automaticamente. Somente propostas aprovadas
+na revisão são persistidas.
+
+A análise automática é opt-in e depende da transcrição automática. No `.env`
+da raiz:
+
+```dotenv
+DISCORDBOT_AUTO_TRANSCRIBE=true
+DISCORDBOT_AUTO_ANALYZE=true
+```
+
+Com isso, o fluxo após `!parar` é gravação → transcrição → análise, uma sessão
+por vez, com progresso no terminal e por DM. Use
+`DISCORDBOT_AUTO_ANALYZE=false` para desabilitar apenas a última etapa.

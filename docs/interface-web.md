@@ -13,8 +13,7 @@ Inicie na raiz com:
 npm start
 ```
 
-Depois abra `http://127.0.0.1:3000`. O CLI anterior permanece disponível em
-`npm run chat`.
+Depois abra `http://127.0.0.1:3000`. A interação e aprovação de memórias ocorrem na web.
 
 ## Organização da experiência
 
@@ -33,7 +32,7 @@ Depois abra `http://127.0.0.1:3000`. O CLI anterior permanece disponível em
   Analisada → Curada`. Transcrição e análise são iniciadas com um clique;
   conversa, relatório e trilhas individuais são carregados sob demanda.
 - **Discord bot:** inicia e encerra o processo Python, entra no canal atual de
-  voz de quem controla, grava, para e sai. O controle usa uma API efêmera autenticada em
+  Murilo, grava, para e sai. O controle usa uma API efêmera autenticada em
   `127.0.0.1`; mensagens operacionais continuam chegando por DM.
 - **Configurações:** liga/desliga as automações de transcrição e análise,
   confirma integrações sem revelar chaves e mostra o modelo de cada agente.
@@ -51,7 +50,7 @@ web_interface/
     ├── server/         BFF, filas, curadoria e gerência de processos
     └── dev/            regressões exclusivas da interface
 
-src/                    agentes, ferramentas, CLI e runtime compartilhado
+src/                    agentes, ferramentas e runtime compartilhado
 discordbot/             captura e processamento Python
 memory/                 dados Markdown acessados somente pelo backend
 ```
@@ -87,10 +86,56 @@ evitando competição por CPU, rede e arquivos. Áudio usa HTTP Range e
 - paths de sessão, memória e áudio são validados no backend;
 - gravações, transcrições, `.env` e caches continuam ignorados pelo Git.
 
-## Validação
+## Validação concluída
 
-- build otimizado do Next.js (`npm run build`);
-- typecheck e validações de agentes, memória, calls e curadoria (`npm test`);
-- suíte Python do Discord bot (`python -m unittest discover -s tests`);
-- verificação local do bot sem conexão ao Discord (`python -m gudybot verificar`);
-- respostas HTTP dos endpoints locais e revisão do layout responsivo.
+- build otimizado do Next.js;
+- typecheck e validações de agentes, memória e calls;
+- suíte Python do Discord bot;
+- verificação local do bot sem conexão ao Discord;
+- respostas HTTP dos endpoints locais e revisão do layout responsivo. A inspeção
+  visual automatizada ficou pendente porque o navegador integrado não estava
+  disponível na sessão de desenvolvimento.
+
+
+## Atlas de memória e conversa flutuante
+
+O chat ocupa uma janela flutuante sobre o atlas circular, disponível mesmo antes
+da primeira mensagem. O endpoint local `/api/memory/atlas` fornece apenas o índice
+de metadados, sem chamadas a modelos e sem cache HTTP. O núcleo, anéis e ambiente
+têm animações próprias; sinais nas conexões são ativados pelos eventos reais de
+recuperação. Movimento reduzido do sistema é respeitado e há um controle para
+pausar a animação ambiente.
+
+A janela pode ser arrastada pelo cabeçalho ou movida com as setas quando o botão
+de mover está focado. É possível recolher e restaurar a posição. A posição é
+limitada à tela e recalculada quando a janela ou o viewport mudam de tamanho.
+No celular, a conversa começa como um painel compacto na parte inferior.
+
+O mapa permite pan por arraste, zoom pela roda ou botões, centralização, filtro
+por nome/apelido/caminho e inspeção dos nós. Os nós também podem ser arrastados:
+uma simulação de molas e colisão acomoda os vizinhos e deixa espaço para as
+etiquetas de nome/probabilidade. As conexões seguem os nós com uma curva curta.
+Centralizar restaura câmera e posições da simulação. O arraste usa captura do
+ponteiro e impede seleção de texto no mapa, inclusive quando o ponteiro é solto
+antes de o React aplicar a última atualização. Enviar mensagens e alternar percursos
+preserva zoom e deslocamento; as coordenadas da câmera não dependem do tamanho
+da árvore. Caminhos explorados ficam verdes; os trajetos completos do núcleo
+até os arquivos selecionados ficam dourados, assim como os arquivos finais. A telemetria mostra a decisão inicial,
+probabilidade, limiar, motivo, contagens, omissões e leituras complementares.
+Percentuais representam relevância, não certeza factual. A inspeção pode abrir
+o documento atual em modo de leitura, explicitamente distinguido do contexto
+que foi entregue a uma resposta anterior.
+
+Cada resposta conserva seu próprio estado de recuperação em memória na sessão
+da página. Clicar em uma mensagem ou nos controles da linha do tempo restaura
+aquele percurso; eventos de uma busca em andamento não substituem um percurso
+histórico selecionado. O envio de uma nova mensagem seleciona sua nova busca.
+O histórico visual não é persistido após recarregar ou iniciar nova conversa.
+
+Componentes: `memory-atlas.tsx`, `floating-chat.tsx`, `chat-workspace.tsx` e
+`neural-chat.css`. O antigo cartão de busca embutido nas mensagens foi removido.
+
+Para a regressão visual, inicie o Next na porta 3100 e execute
+`npm run check:chat-ui` com Playwright disponível. `PLAYWRIGHT_MODULE` aceita a URL
+file:// do módulo Playwright instalado no ambiente; `CHAT_TEST_URL` troca o endereço.
+O teste simula somente o fetch de chat no navegador e não chama modelos.

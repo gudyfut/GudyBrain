@@ -3,7 +3,6 @@ import { ArrowRight, Bot, BrainCircuit, Clock3, MessageCircleMore, Radio, Sparkl
 import { listCalls } from "../server/calls";
 import { listMemories } from "../server/memory";
 import { listReviews } from "../server/curation";
-import { ownerDisplayName } from "../server/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +10,12 @@ export default function DashboardPage() {
   const calls = listCalls();
   const memories = listMemories();
   const reviews = listReviews();
-  const nome = ownerDisplayName();
   const pending = reviews.reduce((total, review) => total + review.candidates.filter((item) => item.decision === "pendente").length, 0);
   const latestCall = calls[0];
   return (
     <div className="page dashboard-page">
       <header className="page-header hero-header">
-        <div><span className="eyebrow"><Sparkles size={14} /> Central do Gudman</span><h1>{nome ? `Bom te ver, ${nome}.` : "Bom te ver."}</h1><p>Converse, transforme evidências em memória e acompanhe suas calls em um só lugar.</p></div>
+        <div><span className="eyebrow"><Sparkles size={14} /> Central do Gudman</span><h1>Bom te ver, Murilo.</h1><p>Converse, transforme evidências em memória e acompanhe suas calls em um só lugar.</p></div>
         <Link href="/chat" className="button primary"><MessageCircleMore size={17} /> Conversar com Gudman</Link>
       </header>
       <section className="metric-grid" aria-label="Resumo do sistema">

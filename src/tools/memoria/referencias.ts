@@ -1,4 +1,4 @@
-import { carregarCatalogoMemoria } from "./catalogo";
+import { carregarCatalogoMemoria, type EntradaCatalogoMemoria } from "./catalogo";
 import { normalizar } from "./frontmatter";
 
 const REFERENCE_FIELDS: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
@@ -11,12 +11,13 @@ const REFERENCE_FIELDS: Readonly<Record<string, Readonly<Record<string, readonly
  * justamente para que renomeações não quebrem a identificação. */
 export function erroIntegridadeReferencias(
   campos: Record<string, unknown>,
+  catalogo?: readonly EntradaCatalogoMemoria[],
 ): string | undefined {
   const type = normalizar(String(campos.type ?? ""));
   const rules = REFERENCE_FIELDS[type];
   if (!rules) return undefined;
   const byId = new Map(
-    carregarCatalogoMemoria()
+    (catalogo ?? carregarCatalogoMemoria())
       .filter((entry) => entry.id)
       .map((entry) => [entry.id as string, entry]),
   );

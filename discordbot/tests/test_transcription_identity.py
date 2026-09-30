@@ -15,27 +15,27 @@ from gudybot.transcription.identity import (  # noqa: E402
 )
 
 
-ALEX_ID = "mem_1a2b3c4d-0000-4000-8000-000000000001"
-BIANCA_ID = "mem_1a2b3c4d-0000-4000-8000-000000000002"
+CREATOR_ID = "mem_00000000-0000-4000-8000-000000000010"
+FRIEND_ID = "mem_00000000-0000-4000-8000-000000000020"
 
 
 class TranscriptionIdentityTests(unittest.TestCase):
     def make_files(self, root: Path) -> tuple[Path, Path]:
         people = root / "memory" / "social" / "pessoas"
         people.mkdir(parents=True)
-        (people / "alex.md").write_text(
+        (people / "criador.md").write_text(
             "---\n"
             "type: Pessoa\n"
-            f"id: {ALEX_ID}\n"
-            "title: Alex Moreira\n"
+            f"id: {CREATOR_ID}\n"
+            "title: Pessoa Criadora\n"
             "---\n",
             encoding="utf-8",
         )
-        (people / "bianca.md").write_text(
+        (people / "amigo.md").write_text(
             "---\n"
             "type: Pessoa\n"
-            f"id: {BIANCA_ID}\n"
-            'title: "Bianca Duarte"\n'
+            f"id: {FRIEND_ID}\n"
+            'title: "Pessoa Amiga"\n'
             "---\n",
             encoding="utf-8",
         )
@@ -43,10 +43,10 @@ class TranscriptionIdentityTests(unittest.TestCase):
         mapping.write_text(
             json.dumps(
                 {
-                    "creator_person_id": ALEX_ID,
+                    "creator_person_id": CREATOR_ID,
                     "person_id_by_discord_id": {
-                        "100000000000000001": ALEX_ID,
-                        "100000000000000002": BIANCA_ID,
+                        "100": CREATOR_ID,
+                        "200": FRIEND_ID,
                     },
                 }
             ),
@@ -59,20 +59,20 @@ class TranscriptionIdentityTests(unittest.TestCase):
             mapping, people = self.make_files(Path(directory))
             resolver = DiscordMemoryIdentityResolver.from_files(mapping, people)
 
-            speaker = resolver.resolve(100000000000000002, "bi_discord")
+            speaker = resolver.resolve(200, "amigo_discord")
 
             self.assertTrue(speaker.resolved)
-            self.assertEqual(speaker.person_id, BIANCA_ID)
-            self.assertEqual(speaker.display_name, "Bianca Duarte")
-            self.assertEqual(speaker.discord_display_name, "bi_discord")
+            self.assertEqual(speaker.person_id, FRIEND_ID)
+            self.assertEqual(speaker.display_name, "Pessoa Amiga")
+            self.assertEqual(speaker.discord_display_name, "amigo_discord")
 
     def test_new_resolution_uses_title_after_name_change(self) -> None:
         with tempfile.TemporaryDirectory(dir=BOT_DIR / "tests") as directory:
             mapping, people = self.make_files(Path(directory))
-            bianca = people / "bianca.md"
-            bianca.write_text(
-                bianca.read_text(encoding="utf-8").replace(
-                    'title: "Bianca Duarte"', "title: Bianca Atualizada"
+            friend = people / "amigo.md"
+            friend.write_text(
+                friend.read_text(encoding="utf-8").replace(
+                    'title: "Pessoa Amiga"', "title: Amigo Atualizado"
                 ),
                 encoding="utf-8",
             )
@@ -80,8 +80,8 @@ class TranscriptionIdentityTests(unittest.TestCase):
             resolver = DiscordMemoryIdentityResolver.from_files(mapping, people)
 
             self.assertEqual(
-                resolver.resolve(100000000000000002, "nome_antigo").display_name,
-                "Bianca Atualizada",
+                resolver.resolve(200, "nome_antigo").display_name,
+                "Amigo Atualizado",
             )
 
     def test_unmapped_discord_user_keeps_discord_name(self) -> None:
@@ -100,8 +100,8 @@ class TranscriptionIdentityTests(unittest.TestCase):
             mapping.write_text(
                 json.dumps(
                     {
-                        "creator_person_id": ALEX_ID,
-                        "person_id_by_discord_id": {"discord-invalido": BIANCA_ID},
+                        "creator_person_id": CREATOR_ID,
+                        "person_id_by_discord_id": {"discord-invalido": FRIEND_ID},
                     }
                 ),
                 encoding="utf-8",

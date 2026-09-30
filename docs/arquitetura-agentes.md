@@ -2,20 +2,21 @@
 
 ## Componentes
 
-O GudyBrain possui quatro agentes, um preenchedor determinístico e uma fronteira
-humana:
+O GudyBrain separa recuperação, resposta, curadoria, preenchimento determinístico
+e revisão humana:
 
 | Componente | Entrada | Permissões | Saída |
 | --- | --- | --- | --- |
-| Gudman | histórico da sessão | hora e leitura de memória | resposta ao usuário |
+| Jev recuperador | mensagem, histórico e metadados | escolher nós enumerados pelo código | arquivos selecionados e eventos visuais |
+| Gudman / GPT pela Responses API | histórico e arquivos selecionados | geração sem ferramentas | resposta ao Murilo |
 | Analista de call | transcrição multivoz em blocos | leitura dirigida | `analise-call.json` e `.md` |
-| Curador de chat | falas do usuário e do Gudman | leitura, template e preparação | candidatos de conversa |
+| Curadoria de chat | falas com IDs e citações | GPT pela Responses API extrai/redige; Jev julga/roteia; código lê e preenche | candidatos e decisões auditáveis |
 | Curador de call | relatório do Analista | leitura, preparação e auditoria | candidatos + cobertura |
 | Preenchedor local | deltas do curador e arquivo atual | nenhuma IA ou escrita | documento completo validado |
 | Revisão humana | candidatos | escrita após aprovação | arquivos em `memory/` |
 
 ```text
-Chat ─► Curador de chat ─┐
+Chat ─► GPT pela Responses API extrai ─► Jev seleciona ─► GPT pela Responses API redige itens ─┐
                         ├─► deltas por seção ─► preenchedor ─► revisão ─► memory/
 Call ─► Analista ─► grounding indicativo ─► Curador de call ─┘
 ```
@@ -26,14 +27,15 @@ podem persistir arquivos.
 
 `src/agents/pipeline.ts` declara, para cada agente, etapa, entrada, agente
 anterior, garantias e limitações da entrada, saída, consumidor seguinte e
-proibições. Esse bloco é injetado automaticamente no prompt. O `registry.ts`
+proibições. Agentes com ferramentas recebem esse bloco no prompt; a curadoria
+Jev/GPT pela Responses API tem etapas explícitas com validação no código. O `registry.ts`
 continua responsável somente pela configuração executável: modelo,
 temperatura, limites, arquivos e allowlist de ferramentas.
 
 ## Por que existem dois curadores
 
-O chat tem o usuário como fonte factual principal e não precisa de auditoria por
-observação. A call possui múltiplos autores, confiança variável, opiniões
+O chat tem Murilo como fonte factual principal e registra decisões por afirmação
+com citações verificadas nas mensagens. A call possui múltiplos autores, confiança variável, opiniões
 direcionais, timestamps e possíveis artefatos de transcrição. Misturar essas
 regras num único prompt aumentava contexto, ambiguidade e risco de atribuição
 incorreta.
@@ -50,13 +52,13 @@ acrescenta até três `possible_memory_matches` por observação usando tipo, te
 IDs, tags, descrição e referências estruturadas. Isso é uma pista, nunca uma
 decisão nem evidência da call.
 
-O Curador consulta novamente a memória vigente porque análises podem estar em
+O Curador de call consulta novamente a memória vigente porque análises podem estar em
 cache. Antes de propor ou encerrar uma observação, ele deve classificá-la como
 `nova`, `complementar`, `reforco`, `contradicao`, `ja_memorizada`, `efemera` ou
 `ambigua`. O código exige listagem/busca do tipo, leitura integral para
 atualizações e comparações com arquivo existente, e impede que repetição ou
 conteúdo efêmero gere candidato. Candidatos guardam os paths consultados e a
-avaliação de novidade para CLI e interface web.
+avaliação de novidade para a interface web.
 
 ## Curadoria e preenchimento são etapas diferentes
 
@@ -64,7 +66,7 @@ O modelo não reconstrói mais um arquivo Markdown inteiro. Ele informa:
 
 - conceito, ação e path;
 - campos novos ou corrigidos do frontmatter;
-- seção canônica e conteúdo novo;
+- seção canônica e itens tipados do contrato v2;
 - natureza, evidências e, em calls, IDs das observações.
 
 `src/tools/memoria/preencher.ts` lê o documento atual, completa campos
@@ -97,10 +99,12 @@ src/tools/memoria/
 └── escrever.ts     persistência após aprovação
 ```
 
-Cada pasta de agente contém `index.ts`, `instructions.md` e `tools/*.md`. O
-`registry.ts` é a fonte canônica de modelo, temperatura, limites, caminhos e
-allowlist. Uma ferramenta visível precisa ter definição no agente, permissão no
-perfil e handler local.
+As etapas têm montagem e prompts locais; `tools/*.md` existe nas etapas GLM
+com tool-calling. Os perfis Jev/GPT pela Responses API do chat não expõem ferramentas ao modelo:
+a inspeção de documentos usa pedidos estruturados validados pelo código.
+`registry.ts` é a fonte canônica de modelo, limites, caminhos e allowlists; os
+perfis GLM também definem temperatura. Uma ferramenta visível precisa ter
+definição no agente, permissão no perfil e handler local.
 
 ## Análise de calls
 
@@ -120,7 +124,7 @@ para diferenciar, por exemplo, uma nova ideia de empresa de um Projeto existente
 
 Somente a revisão humana chama `memoriaCriar` ou `memoriaAtualizar`. Os handlers
 protegem path, ID imutável, campos gerenciados, schema, datas e estrutura do
-corpo. Essa regra vale tanto para CLI quanto para interface web.
+corpo. Essa regra vale para a interface web.
 
 ## Validações
 

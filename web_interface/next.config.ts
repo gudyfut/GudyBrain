@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: repositoryRoot,
   poweredByHeader: false,
   reactStrictMode: true,
+  logging: { incomingRequests: { ignore: [/^\/auth\/callback(?:\?|$)/] } },
   turbopack: { root: repositoryRoot },
 };
 

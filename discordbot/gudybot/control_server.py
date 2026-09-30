@@ -99,7 +99,7 @@ class LocalControlServer:
         ctx = self._creator_context(require_voice=action == "entrar")
         if ctx is None:
             return web.json_response(
-                {"ok": False, "message": "Você precisa estar em um canal de voz."},
+                {"ok": False, "message": "Murilo precisa estar em um canal de voz."},
                 status=409,
             )
         await handler(ctx)

@@ -1,12 +1,12 @@
 import { loadEnv } from "../core/env";
 import { chat, type Message } from "../core/glm";
-import { AGENT_PROFILES, resolveModel } from "../agents/registry";
+import { AGENT_PROFILES } from "../agents/registry";
 
 /** Teste rapido: uma chamada nao-stream e uma stream para validar a chave. */
 loadEnv();
 
 const apiKey = process.env.GLM_API_KEY;
-const model = resolveModel(AGENT_PROFILES.conversante);
+const model = AGENT_PROFILES.conversante.model;
 
 async function main() {
   if (!apiKey) {

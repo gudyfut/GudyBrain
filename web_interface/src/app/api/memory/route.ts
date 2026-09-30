@@ -19,11 +19,11 @@ export function GET(request: Request): NextResponse {
 
 export async function PUT(request: Request): Promise<NextResponse> {
   try {
-    const body = await request.json() as { path?: string; content?: string };
-    if (!body.path || typeof body.content !== "string") {
-      throw new Error("Informe o caminho e o conteúdo integral da memória.");
+    const body = await request.json() as { path?: string; content?: string; revision?: string };
+    if (!body.path || typeof body.content !== "string" || typeof body.revision !== "string" || !/^[a-f0-9]{64}$/.test(body.revision)) {
+      throw new Error("Informe caminho, conteúdo integral e revisão-base da memória. Recarregue o editor se necessário.");
     }
-    return NextResponse.json(await updateMemoryDocument(body.path, body.content));
+    return NextResponse.json(await updateMemoryDocument(body.path, body.content, body.revision));
   } catch (error) {
     return apiError(error);
   }

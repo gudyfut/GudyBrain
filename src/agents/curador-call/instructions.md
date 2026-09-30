@@ -13,7 +13,7 @@ a revisão humana controla a persistência.
 - Leia `memory_blocks` na ordem Alto, Médio e Baixo. O bloco Alto tem prioridade
   obrigatória mesmo quando o contexto geral for jogo, brincadeira ou conversa casual.
 - Use somente `observations` e suas evidências. Preserve falante, sujeito,
-  alvo, confiança e natureza epistemológica; não atribua tudo ao dono do bundle.
+  alvo, confiança e natureza epistemológica; não atribua tudo à pessoa responsável pelo acervo.
 - Confiança `alta` segue o fluxo normal. Em `media`, preserve incerteza e
   atribuição. `baixa` ou ambiguidade isolada não vira afirmação factual.
 - `focus` é prioridade, não allowlist. `avoid_overinterpreting` proíbe apenas o
@@ -40,7 +40,9 @@ a revisão humana controla a persistência.
 4. Prepare um único candidato integrado por arquivo com
    `memoria_preparar_candidato`:
    - `frontmatter` contém apenas valores novos/corrigidos;
-   - `alteracoes` contém seção e conteúdo novo, nunca o documento completo;
+   - envie `versao: 2`; `alteracoes` contém `secao`, `modo` e `itens` tipados;
+   - use `{tipo: "fato", texto: "...", referencias: [ID]}` nas seções comuns;
+     nunca envie `conteudo`, títulos ou fragmentos de Markdown;
    - `modo: acrescentar` é o padrão; `substituir` exige leitura integral e
      preservação do que continuar válido;
    - `observacao_ids` lista todos os IDs incorporados ao candidato.
@@ -60,21 +62,21 @@ com justificativa. O código rejeita atalhos incompatíveis.
   autor sobre o **ser** do alvo: caráter, personalidade, valores, motivações
   percebidas, qualidades, defeitos ou sentimentos persistentes de confiança,
   admiração, respeito, aversão e ressalva. A ficha é a de quem possui a opinião,
-  nunca a do alvo. Use um único bloco por alvo: `### [Nome](/social/pessoas/slug.md)`
-  seguido de bullets; não inclua proveniência da call no conteúdo permanente.
+  nunca a do alvo. Use um item `{tipo: "relacao", alvo_id: ID, percepcoes: ["..."]}`
+  por alvo; não inclua proveniência da call no conteúdo permanente.
 - Parentesco, proximidade, convivência, atividade em comum, episódio isolado,
   decisão financeira/logística, competência para uma tarefa e papel hipotético
   em projeto/grupo não são Relações. Encaminhe fatos ao tipo adequado ou
-  descarte detalhes fracos. Em especial, “conversaria com o Rafael sobre dados
+  descarte detalhes fracos. Em especial, “conversaria com um colega sobre dados
   porque ele é meio-termo entre comercial e programação” descreve utilidade
-  contextual, não uma opinião sobre o núcleo pessoal de Rafael.
+  contextual, não uma opinião sobre o núcleo pessoal desse colega.
 - `padrao_inferido` pode caracterizar o sujeito apenas quando o relatório traz
   sustentação suficiente; redija com fonte e incerteza, nunca como certeza.
 - Episódio isolado vai para **Histórico** ou Evento. Reação durante jogo, insulto,
   hipérbole e brincadeira não são personalidade.
 - **Princípios e Valores** não aceita inferência baseada apenas em comportamento.
 - **Interesses** é um catálogo, não uma narrativa. Registre somente o interesse
-  e um qualificador curto, como `- **League of Legends** modo Arena.`. Não inclua
+  e um qualificador curto: `{tipo: "interesse", nome: "League of Legends", detalhe: "modo Arena."}`. Não inclua
   episódios ou ocorrências; quando duráveis, eles vão para Histórico/Evento, e
   detalhes efêmeros são descartados.
 - **Projeto** guarda iniciativa, objetivo, situação atual, participantes,
@@ -91,8 +93,9 @@ com justificativa. O código rejeita atalhos incompatíveis.
   identificados do mesmo grupo, procure esse sinal mesmo que ninguém diga
   formalmente “isso é uma piada do grupo”. Exija uso, reconhecimento ou reação
   de mais de um membro; uma fala isolada não caracteriza o humor coletivo.
-- **Conhecimento** é exclusivo de exposição deliberada de aprendizado/opinião do
-  dono do bundle; conhecimento casual de outros participantes não entra nesse domínio.
+- **Conhecimento** é exclusivo de exposição deliberada de aprendizado/opinião da
+  pessoa responsável pelo acervo; conhecimento casual de outros participantes
+  não entra nesse domínio.
 - Falante, timestamp e `obs_XXXXX` ficam somente em `evidencias` e
   `observacao_ids`. Nunca os copie para frontmatter ou conteúdo permanente.
 

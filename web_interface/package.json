@@ -10,9 +10,13 @@
     "build": "next build",
     "serve": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "check:curation": "tsx src/dev/validate-web-curation.ts"
+    "check:curation": "tsx src/dev/validate-web-curation.ts",
+    "check:retrieval-view": "tsx src/dev/validate-retrieval-view.ts",
+    "smoke:voice": "tsx src/dev/smoke-voice.ts",
+    "benchmark:voice": "tsx src/dev/benchmark-voice.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "lucide-react": "^1.30.0",
     "next": "^16.3.0",
     "react": "^19.2.8",

@@ -1,14 +1,16 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import type { Agent, AgentEvent } from "@gudybrain/core/agent";
+import type { AgentEvent } from "@gudybrain/core/agent";
 import type { Message } from "@gudybrain/core/glm";
-import { criarConversante } from "@gudybrain/agents/conversante";
-import { requireSecret } from "./paths";
+import { criarConversante, type ConversationAgent } from "@gudybrain/agents/conversante";
+import { memoryChatEnabled } from "@gudybrain/agents/registry";
+import { chatGPTAuth } from "@gudybrain/core/chatgpt-auth";
+import { ensureEnvironment } from "./paths";
 
 interface ChatSession {
   readonly id: string;
-  readonly agent: Agent;
+  readonly agent: ConversationAgent;
   busy: boolean;
   updatedAt: number;
 }
@@ -25,11 +27,12 @@ const runtime = globalRuntime.__gudyChatRuntime ?? { sessions: new Map() };
 globalRuntime.__gudyChatRuntime = runtime;
 
 export function createChatSession(): ChatSession {
+  ensureEnvironment();
   pruneSessions();
   const id = randomUUID();
   const session: ChatSession = {
     id,
-    agent: criarConversante({ apiKey: requireSecret("GLM_API_KEY") }).agent,
+    agent: criarConversante({ apiKey: process.env.GLM_API_KEY }).agent,
     busy: false,
     updatedAt: Date.now(),
   };
@@ -49,7 +52,9 @@ export function deleteChatSession(id: string): void {
 }
 
 export function chatHistory(id: string): readonly Message[] {
-  return [...getChatSession(id).agent.history];
+  const session = getChatSession(id);
+  if (session.busy) throw new Error("Aguarde a resposta terminar antes de memorizar.");
+  return session.agent.history.map((message) => ({ ...message }));
 }
 
 export async function runChat(
@@ -66,7 +71,9 @@ export async function runChat(
   if (session.busy) throw new Error("Gudman ainda está respondendo nesta conversa.");
   session.busy = true;
   try {
-    return await session.agent.run(input, callbacks);
+    const signal = memoryChatEnabled() ? AbortSignal.any([chatGPTAuth.sessionSignal(), ...(callbacks.signal ? [callbacks.signal] : [])]) : callbacks.signal;
+    if (memoryChatEnabled()) await chatGPTAuth.accessToken(signal);
+    return await session.agent.run(input, { ...callbacks, signal });
   } finally {
     session.busy = false;
     session.updatedAt = Date.now();

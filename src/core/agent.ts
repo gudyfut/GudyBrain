@@ -19,6 +19,7 @@ import {
   type Tool,
 } from "./glm";
 import { toolHandlers } from "../tools/registry";
+import type { RetrievalEvent } from "./retrieval-events";
 
 const DEFAULT_MAX_STEPS = 8;
 
@@ -28,8 +29,10 @@ interface LoadedToolDefinition {
   source: string; // nome do arquivo, para mensagens de erro
 }
 
-/** Eventos do loop, para a interface (CLI) poder mostrar o que acontece. */
+/** Eventos operacionais observáveis pela interface web. */
 export type AgentEvent =
+  | { type: "retrieval_trace"; event: RetrievalEvent }
+  | { type: "retrieval"; message: string }
   | { type: "thinking" }
   | { type: "tool_call"; name: string; args: unknown }
   | { type: "tool_result"; name: string; result: string }

@@ -1,0 +1,8 @@
+{
+  "rules": [
+    {
+      "canonical": "Nome Canônico",
+      "variants": ["Nome reconhecido incorretamente"]
+    }
+  ]
+}

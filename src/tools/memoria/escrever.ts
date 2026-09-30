@@ -4,25 +4,32 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
-  statSync,
+  lstatSync,
   writeFileSync,
+  unlinkSync,
+  linkSync,
+  openSync,
+  closeSync,
 } from "node:fs";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { resolverCaminho } from "./caminhos";
 import { erroDataNascimento } from "./datas";
 import { criarIdMemoria, extrairIdMemoria, idMemoriaValido } from "./ids";
 import { erroSchemaAtualizacao, erroSchemaCriacao } from "./schema";
-import { erroEstruturaCorpo } from "./estrutura";
+import { erroEstruturaCorpo, obterEstruturaMemoria } from "./estrutura";
 import { erroIntegridadeReferencias } from "./referencias";
 import { parseFrontmatter } from "./frontmatter";
+import { interpretarDocumentoEditavel } from "./documento-editavel";
+import { serializarValorMemoria } from "./valores-yaml";
+import { revisaoMemoria } from "./contrato-escrita";
 
 /**
  * Skills de escrita no bundle: memoria_criar e memoria_atualizar.
  *
- * A IA nunca toca no disco: ela devolve um tool_call com {path, frontmatter,
- * corpo} e este handler faz o fs. Validacao minima: so path (seguranca +
- * normalizacao de slug) e presenca de `type`. Nao restringimos valores de
- * natureza/tipo/categoria — o modelo pode usar os que quiser.
+ * API interna da revisão humana: recebe documentos materializados pelo código,
+ * valida schema completo, estrutura, identidade, destino e revisão-base.
+ * Não é uma ferramenta exposta aos agentes; a IA usa o contrato de itens v2.
  *
  * Politica de conflito: criar recusa se ja existe; atualizar recusa se nao
  * existe. ID, proveniencia (generated) e status sao gerenciados pelo handler.
@@ -36,6 +43,7 @@ interface Alvo {
 
 export interface WriteMemoryOptions {
   readonly generatedBy?: string;
+  readonly expectedRevision?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +53,10 @@ export async function memoriaCriar(
   args: Record<string, unknown>,
   options: WriteMemoryOptions = {},
 ): Promise<string> {
+  return comBloqueio(() => criarMemoria(args, options));
+}
+
+function criarMemoria(args: Record<string, unknown>, options: WriteMemoryOptions): string {
   const pathArg = typeof args.path === "string" ? args.path : "";
   if (!pathArg) return "Erro: 'path' e obrigatorio.";
 
@@ -76,10 +88,12 @@ export async function memoriaCriar(
   if (existsSync(alvo.file)) {
     return `Erro: ja existe "${alvo.rel}". Use memoria_atualizar para modificar.`;
   }
+  const erroDestino = validarDestinoMemoria(alvo.rel, campos.type);
+  if (erroDestino) return `Erro: ${erroDestino}`;
 
   const id = criarIdUnico();
   mkdirSync(alvo.dir, { recursive: true });
-  escreverAtomico(alvo.file, montarArquivoNovo(campos, corpo, id, options.generatedBy));
+  escreverAtomico(alvo.file, montarArquivoNovo(campos, corpo, id, options.generatedBy), true);
   return `Criado: ${alvo.rel}`;
 }
 
@@ -89,6 +103,10 @@ export async function memoriaAtualizar(
   args: Record<string, unknown>,
   options: WriteMemoryOptions = {},
 ): Promise<string> {
+  return comBloqueio(() => atualizarMemoria(args, options));
+}
+
+function atualizarMemoria(args: Record<string, unknown>, options: WriteMemoryOptions): string {
   const pathArg = typeof args.path === "string" ? args.path : "";
   if (!pathArg) return "Erro: 'path' e obrigatorio.";
   const pathOrigemArg =
@@ -123,9 +141,11 @@ export async function memoriaAtualizar(
     return `Erro: nao e possivel renomear para "${destino.rel}": o arquivo ja existe.`;
   }
 
-  const { frontmatter, corpo } = splitFrontmatter(
-    readFileSync(origem.file, "utf8"),
-  );
+  const conteudoAnterior = readFileSync(origem.file, "utf8");
+  if (!options.expectedRevision || options.expectedRevision !== revisaoMemoria(conteudoAnterior)) {
+    return "Erro: conflito de revisão. A memória mudou ou a proposta não possui versão-base; recarregue e revise novamente.";
+  }
+  const { frontmatter, corpo } = splitFrontmatter(conteudoAnterior);
   const idAtual = extrairIdMemoria(frontmatter);
   if (!idMemoriaValido(idAtual)) {
     return `Erro: memória existente "${origem.rel}" não possui um id válido.`;
@@ -134,7 +154,7 @@ export async function memoriaAtualizar(
     return `Erro: id duplicado no bundle: "${idAtual}".`;
   }
   if (temFm) {
-    const typeAtual = frontmatter.match(/^\s*type\s*:\s*([^\r\n]+)/m)?.[1]?.trim() ?? "";
+    const typeAtual = String(parseFrontmatterSimples(frontmatter).type ?? "");
     const erroSchema = erroSchemaAtualizacao(fm as Record<string, unknown>, typeAtual);
     if (erroSchema) return `Erro: ${erroSchema}`;
   }
@@ -144,18 +164,28 @@ export async function memoriaAtualizar(
   fmFinal = reinjetarGenerated(fmFinal, options.generatedBy);
 
   const corpoFinal = temCorpo ? (args.corpo as string) : corpo;
-  const typeFinal = fmFinal.match(/^\s*type\s*:\s*([^\r\n]+)/m)?.[1]?.trim() ?? "";
+  const typeFinal = String(parseFrontmatterSimples(fmFinal).type ?? "");
+  const erroDestino = validarDestinoMemoria(destino.rel, typeFinal);
+  if (erroDestino) return `Erro: ${erroDestino}`;
   const camposFinais = parseFrontmatterSimples(fmFinal);
   const erroReferencias = erroIntegridadeReferencias(camposFinais);
   if (erroReferencias) return `Erro: ${erroReferencias}`;
   const erroEstrutura = erroEstruturaCorpo(typeFinal, corpoFinal, corpo);
   if (erroEstrutura) return `Erro: estrutura do corpo inválida: ${erroEstrutura}`;
   const conteudoFinal = `---\n${fmFinal}\n---\n\n${corpoFinal.trim()}\n`;
+  try {
+    // generated muda por autoria da aprovação; compare a versão humana antes dessa atualização.
+    interpretarDocumentoEditavel(`---\n${temFm ? mesclarLinhas(frontmatter, fm as Record<string, unknown>) : frontmatter}\n---\n\n${corpoFinal.trim()}\n`, conteudoAnterior);
+  } catch (error) {
+    return `Erro: ${error instanceof Error ? error.message : String(error)}`;
+  }
   if (renomear) {
     mkdirSync(destino.dir, { recursive: true });
-    renameSync(origem.file, destino.file);
+    escreverAtomico(destino.file, conteudoFinal, true);
+    unlinkSync(origem.file);
+  } else {
+    escreverAtomico(destino.file, conteudoFinal);
   }
-  escreverAtomico(destino.file, conteudoFinal);
   if (!renomear) return `Atualizado: ${destino.rel}`;
 
   const linksAtualizados = atualizarReferencias(origem.rel, destino.rel);
@@ -175,7 +205,7 @@ function normalizarCaminho(rel: string): Alvo {
   if (!arquivo) throw new Error("path vazio");
   const relPastas = partes.join("/");
   const dir = resolverCaminho(relPastas);
-  return { dir, file: join(dir, arquivo), rel: relFinal };
+  return { dir, file: resolverCaminho(relFinal), rel: relFinal };
 }
 
 function parseFrontmatterSimples(frontmatter: string): Record<string, unknown> {
@@ -186,6 +216,7 @@ function parseFrontmatterSimples(frontmatter: string): Record<string, unknown> {
 
 /** Normalização pública para testes e para manter paths com/sem .md idênticos. */
 export function normalizarCaminhoRelativo(rel: string): string {
+  if (/^[A-Za-z]:|\\/u.test(rel)) throw new Error("Use caminho relativo ao bundle, em barras '/'.");
   const limpo = rel.trim().replace(/^\/+|\/+$/g, "");
   if (limpo.includes("..")) throw new Error("path invalido (contem '..')");
 
@@ -198,6 +229,14 @@ export function normalizarCaminhoRelativo(rel: string): string {
   return [...pastas, `${nome}.md`].join("/");
 }
 
+export function validarDestinoMemoria(path: string, type: string): string | undefined {
+  const structure = obterEstruturaMemoria(type);
+  if (!structure || !path.startsWith(`${structure.pasta}/`) || path.split("/").at(-1) === "index.md") {
+    return `Destino de ${type} deve ficar em ${structure?.pasta ?? "pasta canônica"}/ e não pode ser index.md.`;
+  }
+  return undefined;
+}
+
 function normalizarSegmento(s: string): string {
   return s
     .normalize("NFD")
@@ -207,29 +246,10 @@ function normalizarSegmento(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Serializa valor YAML simples (escalar, lista inline). Nao e YAML completo. */
-function serializarValor(v: unknown): string {
-  if (typeof v === "string") {
-    if (v === "" || /[:\[\]{}#]/.test(v) || v !== v.trim()) return JSON.stringify(v);
-    return v;
-  }
-  if (Array.isArray(v)) {
-    const items = v.map((x) => {
-      const s = typeof x === "string" ? x : String(x);
-      return /[\[\],:]/.test(s) ? JSON.stringify(s) : s;
-    });
-    return `[${items.join(", ")}]`;
-  }
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (v === null) return "null";
-  if (v === undefined) return '""';
-  return JSON.stringify(v);
-}
-
 function linhaGenerated(generatedBy = "gudman/desconhecido"): string {
   const by = generatedBy;
   const at = new Date().toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
-  return `generated: { by: ${by}, at: ${at} }`;
+  return `generated: { by: ${serializarValorMemoria(by)}, at: ${at} }`;
 }
 
 /** Monta o arquivo novo: frontmatter com type primeiro, status default draft,
@@ -241,14 +261,14 @@ function montarArquivoNovo(
   generatedBy?: string,
 ): string {
   const linhas: string[] = [
-    `type: ${serializarValor(campos.type)}`,
+    `type: ${serializarValorMemoria(campos.type)}`,
     `id: ${id}`,
   ];
   let temStatus = false;
   for (const [k, v] of Object.entries(campos)) {
     if (k === "type" || k === "id" || k === "generated") continue;
     if (k === "status") temStatus = true;
-    linhas.push(`${k}: ${serializarValor(v)}`);
+    linhas.push(`${k}: ${serializarValorMemoria(v)}`);
   }
   if (!temStatus) linhas.push("status: draft");
   linhas.push(linhaGenerated(generatedBy));
@@ -273,13 +293,13 @@ function mesclarLinhas(fmText: string, parcial: Record<string, unknown>): string
     const m = linha.match(/^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/);
     const chave = m?.[2];
     if (chave && pendentes.has(chave)) {
-      out.push(`${m?.[1] ?? ""}${chave}: ${serializarValor(parcial[chave])}`);
+      out.push(`${m?.[1] ?? ""}${chave}: ${serializarValorMemoria(parcial[chave])}`);
       pendentes.delete(chave);
     } else {
       out.push(linha);
     }
   }
-  for (const k of pendentes) out.push(`${k}: ${serializarValor(parcial[k])}`);
+  for (const k of pendentes) out.push(`${k}: ${serializarValorMemoria(parcial[k])}`);
   return out.join("\n");
 }
 
@@ -291,10 +311,32 @@ function reinjetarGenerated(fmText: string, generatedBy?: string): string {
 }
 
 /** Escreve em .tmp e renomeia — evita arquivo parcial se falhar no meio. */
-function escreverAtomico(file: string, content: string): void {
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, content, "utf8");
-  renameSync(tmp, file);
+function escreverAtomico(file: string, content: string, criar = false): void {
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(tmp, content, { encoding: "utf8", flag: "wx" });
+    if (criar) linkSync(tmp, file); // Publica completo e falha se o destino apareceu entretanto.
+    else renameSync(tmp, file);
+  } finally {
+    if (existsSync(tmp)) unlinkSync(tmp);
+  }
+}
+
+/** Serializa gravações entre processos CLI/web; não rouba lock após crash. */
+function comBloqueio(write: () => string): string {
+  const root = resolverCaminho("");
+  const lock = join(root, ".write.lock");
+  let handle: number | undefined;
+  try {
+    mkdirSync(root, { recursive: true });
+    try { handle = openSync(lock, "wx"); }
+    catch { return "Erro: memória ocupada por outra gravação (.write.lock). Tente novamente; após interrupção abrupta, verifique o processo antes de remover o lock."; }
+    return write();
+  } catch (error) {
+    return `Erro: gravação recusada: ${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    if (handle !== undefined) { closeSync(handle); unlinkSync(lock); }
+  }
 }
 
 function criarIdUnico(): string {
@@ -335,7 +377,8 @@ function coletarMarkdown(dir: string, arquivos: string[]): void {
   for (const nome of readdirSync(dir)) {
     if (nome.startsWith(".")) continue;
     const full = join(dir, nome);
-    const stat = statSync(full);
+    const stat = lstatSync(full);
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) coletarMarkdown(full, arquivos);
     else if (nome.endsWith(".md")) arquivos.push(full);
   }

@@ -1,4 +1,4 @@
-# Estrutura da memória
+# Estrutura da memória (bundle OKF)
 
 > **Status:** estrutura implementada e migrada para schemas fixos no domínio
 > `social/`.
@@ -54,7 +54,7 @@ memory/
 
 Princípios:
 
-- **Hierarquia livre** (o formato não dita a árvore). O path categoriza Conhecimento
+- **Hierarquia livre** (OKF §3 não dita a árvore). O path categoriza Conhecimento
   (`conhecimento/programacao/backend/...`).
 - **Aninhamento com moderação** — até ~3 níveis sob cada domínio. Regras:
   não criar pasta com só 1 filho; `index.md` só em ramificações reais; lembre
@@ -78,7 +78,7 @@ imutável e não depende de título, path ou tipo.
 | `description` | sim | uma frase curta ou `null` |
 | `categoria` | sim (aceita `null`) | `Familia` \| `Amigo` \| `Conhecido` |
 | `vinculo` | sim (aceita `null`) | texto livre: descritor específico dentro da categoria |
-| `apelido` | sim (aceita `null`) | string ou lista — como a pessoa é conhecida ("Zeta") |
+| `apelido` | sim (aceita `null`) | string ou lista — como a pessoa é conhecida ("Beto") |
 | `data_nascimento` | sim (nosso) | data completa em ISO `YYYY-MM-DD`, ou `null` quando desconhecida; base canônica para calcular idade e aniversário |
 | `proximidade` | sim (aceita `null`) | `0`–`5` (int) — contato/proximidade |
 | `afinidade` | sim (aceita `null`) | `0`–`5` (int) — sintonia/interesses |
@@ -104,9 +104,9 @@ modelo. `proxima` = proximidade ≥ 3; `muito_proxima`/`mais_proximas` = ≥ 4;
 quando o usuário informa uma nota explicitamente.
 
 **`apelido`:** string, lista ou `null`. Como a pessoa é conhecida no grupo
-("Zeta"). É buscável — `memoria_buscar consulta="Zeta"` acha a pessoa. O
+("Beto"). É buscável — `memoria_buscar consulta="Beto"` acha a pessoa. O
 `title` fica só com o nome canônico; você pode repetir o apelido no H1
-(`# Bruno Sanches (Zeta)`) pra legibilidade humana.
+(`# Roberto Exemplo (Beto)`) pra legibilidade humana.
 
 **`data_nascimento` x idade:** guardar somente a data completa e explícita. A
 idade não pertence ao bundle porque é derivada e ficaria obsoleta anualmente;
@@ -131,13 +131,13 @@ proximidade: 4
 afinidade: 5
 tags: [infancia, sp, design]
 status: stable
-generated: { by: human:alex, at: 2026-08-04 }
+generated: { by: human:exemplo, at: 2026-08-04 }
 ---
 
 # João Silva
 
 ## Informações Gerais
-Designer, mora em São Paulo e é amigo de infância de Alex.
+Designer, mora em São Paulo e é amigo de infância de Ana.
 
 ## Princípios e Valores
 Valoriza lealdade nas amizades e independência profissional.
@@ -153,13 +153,15 @@ Nos conhecemos aos 7 anos. Moramos juntos em [Campinas](/lugares/campinas.md)
 de 2016 a 2018.
 
 ## Interesses
-Design, futebol, culinária italiana.
+- **Design** interesse profissional.
+- **Futebol** joga aos fins de semana.
+- **Culinária italiana** gosta de cozinhar.
 
 ## Curiosidades
 
 ## Relações
-### [Alex Moreira](/social/pessoas/alex-moreira.md)
-- Considera Alex leal e intelectualmente curioso.
+### [Ana](/social/pessoas/ana.md)
+- Considera Ana leal e intelectualmente curiosa.
 - Confia nele para conversas pessoais e valoriza sua franqueza.
 ```
 
@@ -213,7 +215,7 @@ title: Framework de frontend
 description: Prefere React como base, com margem para Next.js.
 natureza: Opiniao
 tags: [web, react, next]
-generated: { by: human:alex, at: 2026-08-04 }
+generated: { by: human:exemplo, at: 2026-08-04 }
 ---
 
 ## Contexto
@@ -237,7 +239,7 @@ title: Rotação de culturas e fixação de nitrogênio
 description: Leguminosas fixam N2 atmosférico via rizóbios, reduzindo N fertilizante.
 natureza: Aprendizado
 tags: [solo, nitrogenio]
-generated: { by: human:alex, at: 2026-08-04 }
+generated: { by: human:exemplo, at: 2026-08-04 }
 ---
 
 ## Contexto
@@ -290,7 +292,7 @@ tipo: Acontecimento
 participantes: [mem_11111111-1111-4111-8111-111111111111]
 lugares: [mem_22222222-2222-4222-8222-222222222222]
 tags: [ana, relacionamento]
-generated: { by: human:alex, at: 2026-08-04 }
+generated: { by: human:exemplo, at: 2026-08-04 }
 ---
 
 ## Contexto
@@ -331,7 +333,7 @@ title: Campinas
 description: Cidade onde morei durante a graduação (2016–2018).
 tipo: Cidade
 tags: [sp, moradia]
-generated: { by: human:alex, at: 2026-08-04 }
+generated: { by: human:exemplo, at: 2026-08-04 }
 ---
 
 ## Moradia
@@ -352,7 +354,7 @@ mantém IDs para recuperação; `## Membros` mantém links, nomes e papéis.
 |---|---|---|
 | `type` | sim | fixo `Grupo` |
 | `id` | sim (injetado) | `mem_<uuid>` estável e imutável |
-| `title` | sim | nome do grupo ("V3ga") |
+| `title` | sim | nome do grupo ("Equipe Aurora") |
 | `description` | sim (aceita `null`) | uma frase (vai pro índice) |
 | `tipo` | sim (aceita `null`) | `Amigos` \| `Trabalho` \| `Familia` \| `Estudo` \| ... |
 | `membros` | sim | IDs imutáveis de Pessoas já cadastradas; `[]` quando vazio |
@@ -360,27 +362,34 @@ mantém IDs para recuperação; `## Membros` mantém links, nomes e papéis.
 | `status` | sim (injetado) | `stable` \| `draft` \| `deprecated` |
 | `generated` | sim (injetado) | quem/quando |
 
-### Exemplo — `social/grupos/v3ga.md`
+### Exemplo — `social/grupos/equipe-aurora.md`
 
 ```markdown
 ---
 type: Grupo
 id: mem_00000000-0000-4000-8000-000000000000
-title: V3ga
+title: Equipe Aurora
 description: Grupo de amigos.
 tipo: Amigos
 membros: []
 tags: []
-generated: { by: human:alex, at: 2026-08-04 }
+generated: { by: human:exemplo, at: 2026-08-04 }
 ---
 
-# V3ga
+# Equipe Aurora
 
 ## Sobre
 Grupo de amigos.
 
 ## Membros
-- [Bianca Duarte](/social/pessoas/bianca-duarte.md)
+- [Ana](/social/pessoas/ana.md)
+
+## Dinâmica
+Encontra-se mensalmente para discutir projetos.
+
+## Humor
+
+## Acordos
 ```
 
 ---
@@ -437,13 +446,14 @@ duráveis desse tipo pertencem a `Histórico` ou a um Evento.
 **Lugar:** `## Moradia` (residentes e períodos) · `## Visitas` (passagens) ·
 `## Notas` (características duráveis)
 
-**Grupo:** `## Sobre` (identidade, origem e dinâmica) · `## Membros` (links e
-papéis dos indivíduos) · `## Humor` (estilo de humor, piadas recorrentes, memes
-e referências internas reconhecidas coletivamente)
+**Grupo:** `## Sobre` (identidade e origem) · `## Membros` (composição e papéis) ·
+`## Dinâmica` (hábitos recorrentes) · `## Humor` (referências coletivas) ·
+`## Acordos` (combinados efetivamente aceitos)
 
 **Projeto:** `## Visão Geral` · `## Estado Atual` · `## Participantes` ·
-`## Decisões` · `## Próximos Passos` · `## Histórico`. Propostas em debate não
-viram decisões, e papéis contextuais não viram características pessoais.
+`## Decisões` · `## Propostas e Questões em Aberto` · `## Próximos Passos` ·
+`## Histórico`. Propostas em debate não viram decisões, e papéis contextuais
+não viram características pessoais.
 
 ---
 
@@ -452,9 +462,9 @@ viram decisões, e papéis contextuais não viram características pessoais.
 - **Slugs:** minúsculos, sem acento, `kebab-case`.
 - **`title` em português**, com acento/maiúsculas normais.
 - **Campos customizados** em português (`categoria`, `vinculo`,
-  `data_nascimento`, `proximidade`, `afinidade`, `natureza`,
+  `data_nascimento`, `proximidade`, `afinidade`, `area`, `subarea`, `natureza`,
   `data`, `datafim`, `tipo`);
-  **campos estruturais** em inglês (`id`, `type`, `title`, `description`, `tags`, `status`,
+  **padrão OKF** em inglês (`id`, `type`, `title`, `description`, `tags`, `status`,
   `generated`).
 - **`id` é identidade interna:** formato `mem_<uuid-v4>`, gerado somente pelo
   handler, globalmente único e preservado em atualização, renomeação ou mudança
@@ -468,8 +478,8 @@ viram decisões, e papéis contextuais não viram características pessoais.
 - **Área de Conhecimento = path** (não há campo `area`/`subarea` no
   frontmatter). Filtrar por domínio = `memoria_listar` na pasta; filtrar por
   tipo = `memoria_buscar natureza:...`.
-- **`index.md` em cada pasta de ramificação**, listando `title` + `description`
-  dos filhos (progressive disclosure).
+- **`index.md` em cada pasta de ramificação** com escopo breve da pasta; seu
+  frontmatter pode fornecer `title` e `description` para a busca progressiva.
 - **Datas em ISO:** eventos `YYYY-MM-DDTHH:mm` (hora local, sem fuso por enquanto).
 
 ---
@@ -486,7 +496,7 @@ viram decisões, e papéis contextuais não viram características pessoais.
   antigos. ✅
 - **Área de Conhecimento = path só** (sem `area`/`subarea` no frontmatter);
   `natureza` classifica o tipo da nota. ✅
-- **Identidade do autor:** `generated.by: human:<nome>`. ✅
+- **Identidade do autor:** `generated.by: human:exemplo`. ✅
 - **`social/` dividido em `pessoas/` e `grupos/`** (grupos com `type: Grupo`). ✅
 - **`apelido`** como campo opcional de Pessoa (string ou lista). ✅
 - **Nascimento:** `data_nascimento` obrigatório em Pessoa (`YYYY-MM-DD` ou
@@ -499,6 +509,6 @@ viram decisões, e papéis contextuais não viram características pessoais.
   `categoria` continua no frontmatter, sem mover arquivos quando a relação
   muda. ✅
 
-Estrutura implementada e migrada para schemas fixos no domínio `social/`. O
-bundle de demonstração em `memory-seed/` ilustra todos os tipos; `npm run
-memory:init` cria a cópia local editável.
+Estrutura pronta. Próximo passo: criar `memory/` com `index.md` + um exemplo de
+cada tipo e implementar as 3 skills de leitura (`memoria_listar`,
+`memoria_buscar`, `memoria_ler`).

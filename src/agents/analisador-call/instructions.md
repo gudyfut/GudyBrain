@@ -140,11 +140,10 @@ correspondências são apenas pistas para o Curador de call: não alteram a
 alegação, a evidência, a confiança nem `memory_signal`. Não deixe conhecimento
 prévio substituir a evidência da call.
 
-Na resolução de entidades, grafias foneticamente próximas de nomes próprios
-incomuns — apelidos estilizados de grupos, por exemplo — provavelmente apontam
-para a mesma entidade quando o contexto for o círculo correspondente. Confirme
-na consolidação com a memória; se o contexto comportar outro significado real,
-preserve a ambiguidade.
+Na resolução de entidades, trate grafias foneticamente próximas de nomes do
+glossário e dos conceitos cadastrados como hipóteses. Confirme na consolidação
+com a memória; se o contexto comportar outro significado real, preserve a
+ambiguidade.
 
 ## Saída
 

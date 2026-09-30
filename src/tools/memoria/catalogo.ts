@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, lstatSync } from "node:fs";
 import { extname, join } from "node:path";
 import { resolverCaminho, relativoDoBundle } from "./caminhos";
 import { normalizar, parseFrontmatter } from "./frontmatter";
@@ -182,7 +182,8 @@ function coletarMarkdown(directory: string, output: string[]): void {
   for (const name of readdirSync(directory)) {
     if (name.startsWith(".")) continue;
     const path = join(directory, name);
-    const stat = statSync(path);
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) coletarMarkdown(path, output);
     else if (extname(name) === ".md" && name !== "index.md") output.push(path);
   }

@@ -8,11 +8,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolverCaminho } from "./caminhos";
 import { erroDataNascimento } from "./datas";
 import { erroCamposGerenciados } from "./schema";
-import { normalizarCaminhoRelativo } from "./escrever";
-import {
-  preencherDocumentoCandidato,
-  type AlteracaoSecao,
-} from "./preencher";
+import { normalizarCaminhoRelativo, validarDestinoMemoria } from "./escrever";
+import { preencherDocumentoCandidato } from "./preencher";
+import { compilarInsercoes, revisaoMemoria, VERSAO_CONTRATO_ESCRITA } from "./contrato-escrita";
+import { carregarCatalogoMemoria } from "./catalogo";
 import {
   obterAvaliacoesPara,
   obterContextoConsultado,
@@ -25,6 +24,8 @@ import { erroIntegridadeReferencias } from "./referencias";
 export type AcaoCandidato = "criar" | "atualizar";
 
 export interface Candidato {
+  readonly contractVersion?: number;
+  readonly baseRevision?: string;
   readonly acao: AcaoCandidato;
   /** Caminho atual em atualizações; difere de path quando há renomeação. */
   readonly pathOrigem?: string;
@@ -54,7 +55,12 @@ export function obterFila(): Candidato[] {
 export async function memoriaPrepararCandidato(
   args: Record<string, unknown>,
 ): Promise<string> {
-  const acao: AcaoCandidato = args.acao === "atualizar" ? "atualizar" : "criar";
+  if (args.versao !== VERSAO_CONTRATO_ESCRITA) return "Erro: use versao=2 e alteracoes com itens tipados, sem Markdown livre.";
+  const permitidos = ["versao", "acao", "path", "path_origem", "tipo_memoria", "frontmatter", "alteracoes", "motivo", "natureza_proposta", "evidencias", "observacao_ids", "avaliacao_novidade"];
+  if (Object.keys(args).some((key) => !permitidos.includes(key))) return "Erro: campo desconhecido no contrato da proposta; não envie corpo/conteudo.";
+  if (args.acao !== "criar" && args.acao !== "atualizar") return "Erro: acao deve ser criar ou atualizar.";
+  if ("corpo" in args || "conteudo" in args) return "Erro: o contrato não aceita documento completo.";
+  const acao: AcaoCandidato = args.acao;
   const path = typeof args.path === "string" ? args.path.trim() : "";
   if (!path) return "Erro: 'path' e obrigatorio.";
   const pathOrigemArg =
@@ -66,6 +72,8 @@ export async function memoriaPrepararCandidato(
 
   const type = typeof args.tipo_memoria === "string" ? args.tipo_memoria.trim() : "";
   if (!type) return "Erro: 'tipo_memoria' e obrigatorio.";
+  const erroDestino = validarDestinoMemoria(normalizarCaminhoRelativo(path), type);
+  if (erroDestino) return `Erro: ${erroDestino}`;
 
   const fm = args.frontmatter;
   if (!fm || typeof fm !== "object" || Array.isArray(fm)) {
@@ -75,14 +83,17 @@ export async function memoriaPrepararCandidato(
   const erroGerenciado = erroCamposGerenciados(campos);
   if (erroGerenciado) return `Erro: ${erroGerenciado}`;
 
-  const alteracoes = interpretarAlteracoes(args.alteracoes);
-  if (typeof alteracoes === "string") return `Erro: ${alteracoes}`;
   const motivo = typeof args.motivo === "string" ? args.motivo.trim() : "";
   if (!motivo) return "Erro: 'motivo' e obrigatorio.";
   const naturezaProposta =
     args.natureza_proposta === "sintese_interpretativa"
       ? "sintese_interpretativa"
       : "explicita";
+  if (args.natureza_proposta !== "explicita" && args.natureza_proposta !== "sintese_interpretativa") return "Erro: natureza_proposta inválida.";
+  if (!Array.isArray(args.evidencias) || args.evidencias.length < 1 || args.evidencias.length > 4
+    || args.evidencias.some((item) => typeof item !== "string" || !item.trim() || item.length > 240)) return "Erro: forneça de 1 a 4 evidências textuais, até 240 caracteres cada.";
+  if (args.observacao_ids !== undefined && (!Array.isArray(args.observacao_ids)
+    || args.observacao_ids.some((id) => typeof id !== "string" || !/^obs_\d{5}$/u.test(id)))) return "Erro: observacao_ids contém ID inválido.";
   const evidencias = Array.isArray(args.evidencias)
     ? args.evidencias
         .filter((item): item is string => typeof item === "string")
@@ -109,10 +120,19 @@ export async function memoriaPrepararCandidato(
   if (evidencias.length === 0) return "Erro: forneça pelo menos uma evidência explícita.";
 
   let preparado;
+  let baseRevision: string | undefined;
   try {
     const conteudoAtual = acao === "atualizar" && pathOrigem
       ? readFileSync(resolverCaminho(normalizarCaminhoRelativo(pathOrigem)), "utf8")
       : undefined;
+    baseRevision = conteudoAtual === undefined ? undefined : revisaoMemoria(conteudoAtual);
+    let catalogo: ReturnType<typeof carregarCatalogoMemoria> | undefined;
+    const alteracoes = compilarInsercoes(type, args.alteracoes, (id) => {
+      catalogo ??= carregarCatalogoMemoria();
+      const matches = catalogo.filter((item) => item.id === id);
+      const item = matches.length === 1 ? matches[0] : undefined;
+      return item ? { id, type: item.type, title: item.title, path: item.path } : undefined;
+    });
     preparado = preencherDocumentoCandidato({
       type,
       frontmatter: campos,
@@ -143,11 +163,13 @@ export async function memoriaPrepararCandidato(
         }]
       : [];
   fila.push({
+    contractVersion: VERSAO_CONTRATO_ESCRITA,
+    baseRevision,
     acao,
     pathOrigem,
     path,
     frontmatter: preparado.frontmatter,
-    corpo: limparFrontmatterDoCorpo(preparado.corpo),
+    corpo: preparado.corpo,
     motivo,
     naturezaProposta,
     evidencias,
@@ -178,26 +200,6 @@ function interpretarNovidadeChat(value: unknown):
   const reason = typeof item.motivo === "string" ? item.motivo.trim() : "";
   if (!reason) return "'avaliacao_novidade.motivo' é obrigatório.";
   return { classification, reason: reason.slice(0, 500) };
-}
-
-function interpretarAlteracoes(value: unknown): AlteracaoSecao[] | string {
-  if (!Array.isArray(value)) return "'alteracoes' deve ser uma lista.";
-  const alteracoes: AlteracaoSecao[] = [];
-  for (const [index, item] of value.entries()) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return `alteracoes[${index}] deve ser um objeto.`;
-    }
-    const dados = item as Record<string, unknown>;
-    const secao = typeof dados.secao === "string" ? dados.secao.trim() : "";
-    const conteudo = typeof dados.conteudo === "string" ? dados.conteudo.trim() : "";
-    if (!secao || !conteudo) return `alteracoes[${index}] precisa de 'secao' e 'conteudo'.`;
-    alteracoes.push({
-      secao,
-      conteudo,
-      modo: dados.modo === "substituir" ? "substituir" : "acrescentar",
-    });
-  }
-  return alteracoes;
 }
 
 /** Confere a mesma política de existência aplicada na escrita antes de

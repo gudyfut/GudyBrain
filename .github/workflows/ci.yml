@@ -2,8 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [public, main]
+    branches: [public, codex/development, codex/testing]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   node:
@@ -11,21 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Instalar dependências
         run: npm ci
-
-      - name: Criar bundle de memória de demonstração
-        run: npm run memory:init
-
-      - name: Typecheck e validações locais
+      - name: Typecheck e validações locais (sem provedores ou acervos pessoais)
         run: npm test
-
       - name: Build da interface web
         run: npm run build
 
@@ -37,15 +33,12 @@ jobs:
         working-directory: discordbot
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: Suíte de testes
         run: python -m unittest discover -s tests -v

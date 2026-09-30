@@ -116,7 +116,7 @@ class TimelineRecordingTests(unittest.TestCase):
                     if participant["user_id"] == 10:
                         words = [
                             {"word": "Olá", "start": 0.01, "end": 0.03, "score": 0.9},
-                            {"word": " Vega", "start": 0.031, "end": 0.035, "score": 0.9},
+                            {"word": " Orora", "start": 0.031, "end": 0.035, "score": 0.9},
                             {"word": " fantasma", "start": 0.2, "end": 0.3, "score": 0.1},
                             {"word": " voltei", "start": 0.545, "end": 0.558, "score": 0.8},
                         ]
@@ -133,16 +133,22 @@ class TimelineRecordingTests(unittest.TestCase):
                 {"10": alice_person_id},
                 {alice_person_id: "Alice Cadastrada"},
             )
+            corrections_file = sink.session_dir / "correcoes-teste.json"
+            corrections_file.write_text(
+                json.dumps({"rules": [{"canonical": "Aurora", "variants": ["Orora"]}]}),
+                encoding="utf-8",
+            )
             text_path, json_path = merge_session(
                 sink.session_dir,
                 transcripts,
                 identity_resolver=resolver,
+                corrections_file=corrections_file,
             )
             result = json.loads(json_path.read_text(encoding="utf-8"))
             self.assertEqual(result["schema_version"], 4)
             self.assertEqual(
                 [item["text"] for item in result["utterances"]],
-                ["Olá V3ga", "Sim", "voltei"],
+                ["Olá Aurora", "Sim", "voltei"],
             )
             self.assertAlmostEqual(result["utterances"][0]["start"], 0.01, places=3)
             self.assertAlmostEqual(result["utterances"][1]["start"], 2.005, places=3)
@@ -161,7 +167,7 @@ class TimelineRecordingTests(unittest.TestCase):
             self.assertIsNone(bob_participant["person_id"])
             self.assertEqual(result["transcription_quality"]["rejected_count"], 1)
             self.assertEqual(result["transcription_quality"]["correction_count"], 1)
-            self.assertEqual(result["utterances"][0]["raw_text"], "Olá Vega")
+            self.assertEqual(result["utterances"][0]["raw_text"], "Olá Orora")
             quality = json.loads(
                 (sink.session_dir / "transcricao-qualidade.json").read_text(
                     encoding="utf-8"
@@ -171,7 +177,7 @@ class TimelineRecordingTests(unittest.TestCase):
             self.assertEqual(
                 quality["rejected"][0]["reason"], "fora_de_trecho_de_voz"
             )
-            self.assertEqual(quality["corrections"][0]["canonical"], "V3ga")
+            self.assertEqual(quality["corrections"][0]["canonical"], "Aurora")
 
     def test_account_name_wins_over_server_nickname(self) -> None:
         with tempfile.TemporaryDirectory(dir=BOT_DIR / "tests") as directory:
@@ -203,8 +209,8 @@ class TimelineRecordingTests(unittest.TestCase):
             clock = FakeClock()
             identity = ParticipantIdentity(
                 user_id=20,
-                username="bianca_username",
-                global_name="Bianca",
+                username="bruno_username",
+                global_name="Bruno",
                 guild_nickname="Outro apelido",
             )
             sink = self.make_sink(
@@ -220,9 +226,9 @@ class TimelineRecordingTests(unittest.TestCase):
 
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             participant = manifest["participants"][0]
-            self.assertEqual(participant["display_name"], "Bianca")
-            self.assertEqual(participant["username"], "bianca_username")
-            self.assertIn("Bianca_20", saved[0].name)
+            self.assertEqual(participant["display_name"], "Bruno")
+            self.assertEqual(participant["username"], "bruno_username")
+            self.assertIn("Bruno_20", saved[0].name)
 
     def test_rtp_timestamp_rollover_remains_continuous(self) -> None:
         with tempfile.TemporaryDirectory(dir=BOT_DIR / "tests") as directory:

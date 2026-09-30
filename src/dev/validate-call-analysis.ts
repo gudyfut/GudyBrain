@@ -2,14 +2,11 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { PROJECT_ROOT } from "../core/project-root";
-import { parseFrontmatter } from "../tools/memoria/frontmatter";
 import {
   renderCallAnalysisMarkdown,
   writeCallAnalysis,
@@ -40,6 +37,7 @@ import {
 } from "../agents/curador-call/index";
 import type { Candidato } from "../tools/memoria/candidato";
 import { attachPossibleMemoryMatches } from "../agents/analisador-call/grounding";
+import { carregarCatalogoMemoria } from "../tools/memoria/catalogo";
 import { memoriaContextualizar } from "../tools/memoria/contextualizar";
 import {
   iniciarContextualizacao,
@@ -130,31 +128,25 @@ if (isVideoPlatformBoilerplate("Eu criei um canal no YouTube para publicar minha
   throw new Error("declaração factual sobre canal foi filtrada indevidamente");
 }
 
-const projetoAlvo = listarProjetosComParticipantes()[0];
-if (!projetoAlvo) {
-  console.log("⚠ Bundle sem Projeto com participantes; etapa contextual dinâmica ignorada.");
-} else {
+const localCatalog = carregarCatalogoMemoria();
+const sampleProject = localCatalog.find((entry) => entry.type === "Projeto" && entry.id);
+if (sampleProject) {
   const contextualProject = await memoriaContextualizar({
-    consulta: projetoAlvo.title,
+    consulta: sampleProject.title,
     tipo_memoria: "Projeto",
-    entidade_ids: projetoAlvo.participantes.slice(0, 2),
   });
-  if (!contextualProject.includes(projetoAlvo.path)) {
-    throw new Error("recuperação contextual não localizou o Projeto existente");
+  if (!contextualProject.includes(sampleProject.path)) {
+    throw new Error("recuperação contextual não localizou um Projeto existente");
   }
   const grounded = attachPossibleMemoryMatches([{
     id: "obs_00001",
     memory_type: "Projeto",
     section: "Estado Atual",
-    subject: { name: projetoAlvo.title, memory_id: null, memory_path: null },
+    subject: { name: sampleProject.title, memory_id: sampleProject.id, memory_path: sampleProject.path },
     target: null,
-    about: [{
-      name: projetoAlvo.title,
-      memory_id: projetoAlvo.participantes[0] ?? null,
-      memory_path: null,
-    }],
+    about: [],
     claimants: [],
-    statement: `O grupo discutiu o andamento e as próximas etapas de ${projetoAlvo.title}.`,
+    statement: `O grupo discutiu ${sampleProject.title}.`,
     basis: "explicita",
     epistemic_kind: "relato_de_terceiro",
     confidence: "alta",
@@ -164,7 +156,7 @@ if (!projetoAlvo) {
     evidence: [],
     possible_memory_matches: [],
   }]);
-  if (!grounded[0]?.possible_memory_matches.some((item) => item.path === projetoAlvo.path)) {
+  if (!grounded[0]?.possible_memory_matches.some((item) => item.path === sampleProject.path)) {
     throw new Error("grounding pós-extração não anexou correspondência de Projeto");
   }
 
@@ -179,21 +171,21 @@ if (!projetoAlvo) {
       tipo_memoria: "Projeto",
       classificacao: "complementar",
       motivo: "Teste.",
-      path_comparado: projetoAlvo.path,
+      path_comparado: sampleProject.path,
     }],
   });
   if (!prematureNovelty.startsWith("Erro:")) {
     throw new Error("classificação de novidade aceitou decisão sem consulta prévia");
   }
   await memoriaListar({ pasta: "projetos" });
-  await memoriaLer({ path: projetoAlvo.path });
+  await memoriaLer({ path: sampleProject.path });
   const validNovelty = await memoriaClassificarNovidade({
     avaliacoes: [{
       observation_id: "obs_00001",
       tipo_memoria: "Projeto",
       classificacao: "complementar",
       motivo: "Acrescenta uma decisão ao projeto já cadastrado.",
-      path_comparado: projetoAlvo.path,
+      path_comparado: sampleProject.path,
     }],
   });
   if (!validNovelty.startsWith("Novidade classificada") || obterIdsSemAvaliacaoNovidade().length) {
@@ -377,28 +369,3 @@ try {
 }
 
 console.log(`✓ Análise de call: chunking preservou ${utterances.length} falas em ${chunks.length} blocos.`);
-
-interface ProjetoCadastrado {
-  readonly path: string;
-  readonly title: string;
-  readonly id: string;
-  readonly participantes: readonly string[];
-}
-
-/** Projeto do bundle local usado nas verificações contextuais, sem dados fixos. */
-function listarProjetosComParticipantes(): ProjetoCadastrado[] {
-  const diretorio = resolve(PROJECT_ROOT, "memory", "projetos");
-  if (!existsSync(diretorio)) return [];
-  return readdirSync(diretorio)
-    .filter((nome) => nome.endsWith(".md") && nome !== "index.md")
-    .flatMap((nome) => {
-      const { campos } = parseFrontmatter(readFileSync(join(diretorio, nome), "utf8"));
-      const participantes = Array.isArray(campos.participantes)
-        ? campos.participantes.filter((item): item is string => typeof item === "string")
-        : [];
-      const id = typeof campos.id === "string" ? campos.id : "";
-      const title = typeof campos.title === "string" ? campos.title : "";
-      if (!id || !title || !participantes.length) return [];
-      return [{ path: `projetos/${nome}`, title, id, participantes }];
-    });
-}

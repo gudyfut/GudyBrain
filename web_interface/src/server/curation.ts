@@ -10,7 +10,7 @@ import {
   extrairCandidatosCall,
   type CallCurationCoverage,
 } from "@gudybrain/agents/curador-call";
-import { AGENT_PROFILES } from "@gudybrain/agents/registry";
+import { AGENT_PROFILES, MEMORY_CHAT_PROFILES } from "@gudybrain/agents/registry";
 import {
   removerMarcadoresEvidencia,
   type Candidato,
@@ -21,6 +21,7 @@ import {
   normalizarCaminhoRelativo,
 } from "@gudybrain/tools/memoria/escrever";
 import { parseFrontmatter } from "@gudybrain/tools/memoria/frontmatter";
+import { revisaoMemoria } from "@gudybrain/tools/memoria/contrato-escrita";
 import { interpretarDocumentoEditavel } from "@gudybrain/tools/memoria/documento-editavel";
 import {
   mesclarCorposMarkdown,
@@ -48,6 +49,7 @@ export interface MemoryReview {
   progress: string[];
   candidates: ReviewCandidate[];
   coverage: CallCurationCoverage | null;
+  selections: import("@gudybrain/agents/curador-chat/selection").SelectionDecision[];
   error: string | null;
 }
 
@@ -66,6 +68,7 @@ globalRuntime.__gudyReviews = runtime;
 export function createReview(
   source: MemoryReview["source"],
 ): MemoryReview {
+  const history = source.kind === "chat" ? chatHistory(source.id) : undefined;
   const review: MemoryReview = {
     id: randomUUID(),
     source,
@@ -75,10 +78,11 @@ export function createReview(
     progress: [],
     candidates: [],
     coverage: null,
+    selections: [],
     error: null,
   };
   runtime.reviews.set(review.id, review);
-  runtime.tail = runtime.tail.then(() => generateReview(review)).catch(() => undefined);
+  runtime.tail = runtime.tail.then(() => generateReview(review, history)).catch(() => undefined);
   return copyReview(review);
 }
 
@@ -121,10 +125,12 @@ export async function decideCandidate(options: {
 
   if (options.decision === "rejeitar") {
     candidate.decision = "rejeitada";
-    candidate.result = "Rejeitada na revisão humana.";
+    candidate.result = "Rejeitada por Murilo.";
   } else {
     const edited = options.edited ?? {};
     let selected: Candidato = {
+      contractVersion: candidate.contractVersion,
+      baseRevision: candidate.baseRevision,
       acao: edited.acao === "atualizar" || edited.acao === "criar"
         ? edited.acao
         : candidate.acao,
@@ -141,6 +147,10 @@ export async function decideCandidate(options: {
       noveltyAssessments: candidate.noveltyAssessments,
       consultedPaths: candidate.consultedPaths,
     };
+    if (candidate.acao === "atualizar" && (selected.acao !== "atualizar"
+      || normalizarCaminhoRelativo(selected.pathOrigem || selected.path) !== normalizarCaminhoRelativo(candidate.pathOrigem || candidate.path))) {
+      throw new Error("Não é possível trocar a origem de uma proposta de atualização; gere uma proposta para o registro correto.");
+    }
     const conteudoIntegral = typeof edited.conteudo === "string";
     if (conteudoIntegral) {
       const origem = selected.pathOrigem || selected.path;
@@ -158,18 +168,19 @@ export async function decideCandidate(options: {
     // Uma criação conflitante antiga pode ser corrigida na própria bancada.
     // Preparamos uma atualização conservadora e a devolvemos para uma segunda
     // leitura humana; nada é escrito neste primeiro clique.
-    if (candidate.acao === "criar" && selected.acao === "atualizar" && !conteudoIntegral) {
+    if (candidate.acao === "criar" && selected.acao === "atualizar") {
       const origem = selected.pathOrigem || selected.path;
       const atual = readMemory(normalizarCaminhoRelativo(origem)).content;
       const memoriaAtual = parseFrontmatter(atual);
       const corrigido: Candidato = {
         ...selected,
+        baseRevision: revisaoMemoria(atual),
         pathOrigem: origem,
         frontmatter: mesclarFrontmatterExistente(
           memoriaAtual.campos,
           selected.frontmatter,
         ),
-        corpo: mesclarCorposMarkdown(memoriaAtual.corpo, selected.corpo),
+        corpo: conteudoIntegral ? selected.corpo : mesclarCorposMarkdown(memoriaAtual.corpo, selected.corpo),
       };
       Object.assign(candidate, corrigido);
       candidate.decision = "pendente";
@@ -182,7 +193,7 @@ export async function decideCandidate(options: {
 
     const profile = review.source.kind === "call"
       ? AGENT_PROFILES.curadorCall
-      : AGENT_PROFILES.curadorChat;
+      : { model: process.env.OPENAI_MODEL?.trim() || MEMORY_CHAT_PROFILES.curation.model };
     const generatedBy = `gudman/${profile.model}`;
     selected = {
       ...selected,
@@ -199,7 +210,7 @@ export async function decideCandidate(options: {
           path: selected.path,
           frontmatter: selected.frontmatter,
           corpo: selected.corpo,
-        }, { generatedBy });
+        }, { generatedBy, expectedRevision: selected.baseRevision });
     // Conserva também as correções feitas no editor caso a aplicação falhe,
     // permitindo uma nova tentativa sem perder o trabalho humano.
     recordApplicationResult(candidate, selected, result);
@@ -232,7 +243,7 @@ function normalizarErrosTecnicos(review: MemoryReview): void {
   }
 }
 
-async function generateReview(review: MemoryReview): Promise<void> {
+async function generateReview(review: MemoryReview, history?: readonly Message[]): Promise<void> {
   review.status = "analisando";
   review.updatedAt = new Date().toISOString();
   const onStep = (event: AgentEvent): void => {
@@ -245,6 +256,7 @@ async function generateReview(review: MemoryReview): Promise<void> {
       : event.type === "tool_result"
         && (event.name === "memoria_finalizar_cobertura" || event.name === "curadoria_lote")
           ? event.result
+      : event.type === "retrieval" ? event.message
       : event.type === "thinking"
         ? "Curador examinando as evidências"
         : event.type === "max_steps"
@@ -257,11 +269,12 @@ async function generateReview(review: MemoryReview): Promise<void> {
   try {
     let candidates: readonly Candidato[];
     if (review.source.kind === "chat") {
-      candidates = await extrairCandidatosChat({
-          history: chatHistory(review.source.id) as Message[],
-          apiKey: requireSecret("GLM_API_KEY"),
+      const outcome = await extrairCandidatosChat({
+          history: history ?? [],
           onStep,
         });
+      candidates = outcome.candidates;
+      review.selections = outcome.decisions;
       review.coverage = null;
     } else {
       const outcome = await extrairCandidatosCall({

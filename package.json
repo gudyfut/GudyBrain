@@ -11,24 +11,30 @@
     "dev": "npm run dev --workspace @gudybrain/web-interface",
     "build": "npm run build --workspace @gudybrain/web-interface",
     "serve": "npm run serve --workspace @gudybrain/web-interface",
-    "chat": "tsx src/cli/main.ts",
     "start": "npm run start --workspace @gudybrain/web-interface",
-    "agent": "tsx src/cli/main.ts",
-    "call:analyze": "tsx src/cli/analyze-call.ts",
-    "call:review": "tsx src/cli/review-call.ts",
-    "memory:init": "tsx src/dev/memory-init.ts",
     "check:agents": "tsx src/dev/validate-agents.ts",
     "check:calls": "tsx src/dev/validate-call-analysis.ts",
     "check:memory": "tsx src/dev/validate-memory.ts",
     "check:curation": "npm run check:curation --workspace @gudybrain/web-interface",
     "smoke:api": "tsx src/dev/smoke-api.ts",
-    "test": "npm run typecheck && npm run check:agents && npm run check:memory && npm run check:calls && npm run check:curation",
+    "benchmark:chat": "tsx src/dev/benchmark-chat.ts",
+    "check:retrieval": "tsx src/dev/validate-jev-retrieval.ts",
+    "check:writing": "tsx src/dev/validate-memory-writing.ts",
+    "test": "npm run typecheck && npm run check:agents && npm run check:memory && npm run check:calls && npm run check:curation && npm run check:retrieval && npm run check:writing && npm run check:selection && npm run check:retrieval-view --workspace @gudybrain/web-interface && npm run check:context && npm run check:responses",
     "typecheck": "npm run typecheck:core && npm run typecheck --workspace @gudybrain/web-interface",
-    "typecheck:core": "tsc --noEmit"
+    "typecheck:core": "tsc --noEmit",
+    "check:selection": "tsx src/dev/validate-chat-selection.ts",
+    "check:chat-ui": "node web_interface/src/dev/validate-chat-browser.mjs",
+    "check:context": "tsx src/dev/validate-memory-context.ts",
+    "smoke:responses": "tsx src/dev/smoke-responses.ts",
+    "check:responses": "tsx src/dev/validate-responses.ts"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
   }
 }

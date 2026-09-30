@@ -51,10 +51,10 @@ if (validarAlvosCandidato("criar", "lugares/novo", undefined, exists) !== null) 
 }
 
 const merged = mesclarCorposMarkdown(
-  "## Informações gerais\n\n- Profissão: Desenvolvedor\n\n## Relações\n\n- [Bianca](bianca.md): amiga",
-  "## Informações gerais\n\n- Cidade: São Carlos\n\n## Princípios e Valores\n\nLealdade.",
+  "## Informações gerais\n\n- Profissão: Desenvolvedor\n\n## Relações\n\n- [Heitor](heitor.md): amigo",
+  "## Informações gerais\n\n- Cidade: Itajubá\n\n## Princípios e Valores\n\nLealdade.",
 );
-for (const expected of ["Profissão: Desenvolvedor", "Cidade: São Carlos", "Bianca", "Lealdade."]) {
+for (const expected of ["Profissão: Desenvolvedor", "Cidade: Itajubá", "Heitor", "Lealdade."]) {
   if (!merged.includes(expected)) throw new Error(`mescla perdeu conteúdo: ${expected}`);
 }
 if (/^## .+\n\n(?!## )/mu.test(merged)) {

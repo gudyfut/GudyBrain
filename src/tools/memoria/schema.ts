@@ -1,6 +1,7 @@
 import { normalizar } from "./frontmatter";
 import { obterEstruturaMemoria } from "./estrutura";
 import { idMemoriaValido } from "./ids";
+import { erroDataNascimento } from "./datas";
 
 const TIPO_EVENTO_ANTERIOR_A_PERIODO = ["epo", "ca"].join("");
 
@@ -30,6 +31,16 @@ export function erroSchemaCriacao(
     return "'title' deve ser um texto não vazio.";
   }
   if (!Array.isArray(campos.tags)) return "'tags' deve ser uma lista; use [] quando vazia.";
+  for (const [key, value] of Object.entries(campos)) {
+    if (typeof value === "string" && (value.length > 2000 || /[\r\n\u0000-\u001f\u007f]/u.test(value))) return `'${key}' exige texto de uma linha, até 2000 caracteres.`;
+    if (Array.isArray(value) && (value.length > 100 || value.some((item) => typeof item !== "string" || !item.trim() || item.length > 2000 || /[\r\n\u0000-\u001f\u007f]/u.test(item)))) return `'${key}' exige uma lista de até 100 textos não vazios de uma linha.`;
+  }
+  for (const key of ["description", "tipo", "natureza", "data", "datafim", "inicio", "fim"]) {
+    if (key in campos && campos[key] !== null && typeof campos[key] !== "string") return `'${key}' deve ser texto ou null.`;
+  }
+  if ("vinculo" in campos && campos.vinculo !== null && typeof campos.vinculo !== "string" && !Array.isArray(campos.vinculo)) return "'vinculo' deve ser texto, lista de textos ou null.";
+  const erroNascimento = erroDataNascimento(campos, true);
+  if (erroNascimento) return erroNascimento;
 
   const erroReferencias = erroCamposReferencia(type, campos, true);
   if (erroReferencias) return erroReferencias;
@@ -84,6 +95,7 @@ export function erroSchemaAtualizacao(
   typeAtual: string,
 ): string | undefined {
   const type = typeof campos.type === "string" ? campos.type : typeAtual;
+  if (normalizar(type) !== normalizar(typeAtual)) return "O tipo de uma memória existente não pode ser alterado.";
   const permitidosDoTipo = camposDoTipo(type);
   if (!permitidosDoTipo) return `tipo desconhecido "${type}".`;
   const erroGerenciado = erroCamposGerenciados(campos);

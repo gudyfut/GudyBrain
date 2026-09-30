@@ -1,4 +1,5 @@
 import { resolve, join, normalize, sep } from "node:path";
+import { lstatSync } from "node:fs";
 import { PROJECT_ROOT } from "../../core/project-root";
 
 // Raiz do bundle de memoria. Resolve a partir do cwd (raiz do projeto).
@@ -11,6 +12,7 @@ const MEMORY_ROOT = resolve(PROJECT_ROOT, "memory");
  */
 export function resolverCaminho(rel: string | undefined): string {
   const limpo = (rel ?? "").trim().replace(/^\/+|\/+$/g, "");
+  verificarLink(MEMORY_ROOT);
   if (limpo === "") return MEMORY_ROOT;
 
   if (limpo.includes("..") || /^[A-Za-z]:[\\/]/.test(limpo) || limpo.startsWith("~")) {
@@ -21,7 +23,17 @@ export function resolverCaminho(rel: string | undefined): string {
   if (abs !== MEMORY_ROOT && !abs.startsWith(MEMORY_ROOT + sep)) {
     throw new Error(`Caminho fora do bundle: "${rel ?? ""}"`);
   }
+  let current = MEMORY_ROOT;
+  for (const segment of abs.slice(MEMORY_ROOT.length + 1).split(sep)) {
+    current = join(current, segment);
+    verificarLink(current);
+  }
   return abs;
+}
+
+function verificarLink(path: string): void {
+  const stat = lstatSync(path, { throwIfNoEntry: false });
+  if (stat?.isSymbolicLink()) throw new Error("Links simbólicos não são permitidos em caminhos de memória.");
 }
 
 /** Caminho relativo ao bundle (sem barra inicial), em barras "/", para mostrar

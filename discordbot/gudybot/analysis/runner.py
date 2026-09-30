@@ -9,7 +9,7 @@ from ..config import REPO_ROOT
 
 
 TSX_CLI = REPO_ROOT / "node_modules" / "tsx" / "dist" / "cli.mjs"
-ANALYZER_ENTRYPOINT = REPO_ROOT / "src" / "cli" / "analyze-call.ts"
+ANALYZER_ENTRYPOINT = REPO_ROOT / "src" / "agents" / "analisador-call" / "worker.ts"
 
 
 def node_executable() -> str | None:

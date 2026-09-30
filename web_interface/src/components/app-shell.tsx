@@ -33,7 +33,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
           {navigation.map(({ href, label, icon: Icon }) => {
             const active = href === "/" ? pathname === href : pathname.startsWith(href);
             return (
-              <Link key={href} href={href} className={active ? "nav-link active" : "nav-link"}>
+              <Link key={href} href={href} aria-label={label} title={label} className={active ? "nav-link active" : "nav-link"}>
                 <Icon size={19} />
                 <span>{label}</span>
               </Link>
@@ -41,7 +41,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
           })}
         </nav>
         <div className="sidebar-footer">
-          <Link href="/settings" className={pathname.startsWith("/settings") ? "nav-link active" : "nav-link"}>
+          <Link href="/settings" aria-label="Configurações" title="Configurações" className={pathname.startsWith("/settings") ? "nav-link active" : "nav-link"}>
             <Settings2 size={19} /><span>Configurações</span>
           </Link>
           <div className="privacy-note"><span className="status-dot ok" />Execução local</div>

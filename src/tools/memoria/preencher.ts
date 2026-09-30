@@ -3,6 +3,7 @@ import {
   nomeSecaoCanonica,
   normalizarTitulo,
   obterEstruturaMemoria,
+  erroEstruturaCorpo,
 } from "./estrutura";
 import { interpretarDocumentoEditavel } from "./documento-editavel";
 import { erroSchemaCriacao } from "./schema";
@@ -55,6 +56,7 @@ export function preencherDocumentoCandidato(options: {
     : estrutura.secoes.map((secao) => ({ titulo: secao.nome, conteudo: "" }));
   const vistos = new Set<string>();
   for (const alteracao of options.alteracoes) {
+    if (alteracao.modo !== "acrescentar" && alteracao.modo !== "substituir") throw new Error("Modo de alteração inválido.");
     const canonica = nomeSecaoCanonica(estrutura.type, alteracao.secao);
     if (!canonica) {
       throw new Error(`seção "${alteracao.secao}" não pertence a ${estrutura.type}. Use: ${estrutura.secoes.map((item) => item.nome).join(", ")}.`);
@@ -83,7 +85,10 @@ export function preencherDocumentoCandidato(options: {
         : mesclarConteudo(bloco.conteudo, alteracao.conteudo);
   }
 
-  return { frontmatter, corpo: montarCorpo(blocos) };
+  const corpo = montarCorpo(blocos);
+  const erro = erroEstruturaCorpo(estrutura.type, corpo, atual?.corpo);
+  if (erro) throw new Error(erro);
+  return { frontmatter, corpo };
 }
 
 interface BlocoCorpo {
@@ -179,8 +184,17 @@ function mesclarConteudo(atual: string, novo: string): string {
   if (!existente) return proposto;
   const normalizadoAtual = normalizarBloco(existente);
   const normalizadoNovo = normalizarBloco(proposto);
-  if (normalizadoAtual.includes(normalizadoNovo)) return existente;
-  if (normalizadoNovo.includes(normalizadoAtual)) return proposto;
+  if (normalizadoAtual === normalizadoNovo) return existente;
+  const linhas = [...existente.split(/\r?\n/), ...proposto.split(/\r?\n/)];
+  if (linhas.every((linha) => !linha.trim() || /^- \S/u.test(linha))) {
+    const vistos = new Set<string>();
+    return linhas.filter((linha) => {
+      if (!linha.trim()) return false;
+      const chave = normalizarBloco(linha);
+      if (vistos.has(chave)) return false;
+      vistos.add(chave); return true;
+    }).join("\n");
+  }
   const separador = [...existente.split(/\r?\n/), ...proposto.split(/\r?\n/)]
     .every((linha) => !linha.trim() || /^\s*[-*+]\s+/u.test(linha))
       ? "\n"
@@ -230,7 +244,7 @@ function dividirRelacoes(markdown: string): BlocoRelacao[] {
   for (const linhaBruta of markdown.trim().split(/\r?\n/u)) {
     const linha = linhaBruta.trim();
     if (!linha) continue;
-    const titulo = linha.match(/^### \[([^\]\r\n]+)\]\((\/social\/pessoas\/[a-z0-9-]+\.md)\)$/u);
+    const titulo = linha.match(/^### \[([^\]\r\n]+)\]\((\/social\/pessoas\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.md)\)$/u);
     if (titulo?.[1] && titulo[2]) {
       atual = { titulo: titulo[1], path: titulo[2], itens: [] };
       blocos.push(atual);
@@ -245,5 +259,5 @@ function dividirRelacoes(markdown: string): BlocoRelacao[] {
 }
 
 function normalizarBloco(value: string): string {
-  return normalizarTitulo(value).replace(/\s+/g, " ");
+  return value.normalize("NFC").trim().replace(/\s+/g, " ");
 }

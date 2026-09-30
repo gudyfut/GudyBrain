@@ -45,7 +45,7 @@ class GroqTranscriptionTests(unittest.TestCase):
 
     def test_api_timestamps_are_offset_into_original_track(self) -> None:
         result = combine_parts(
-            Path("Gudy.wav"),
+            Path("Alice.wav"),
             30,
             [
                 (
@@ -73,14 +73,14 @@ class GroqTranscriptionTests(unittest.TestCase):
         prompt = build_prompt(
             {
                 "participants": [
-                    {"user_id": 10, "display_name": "Gudy"},
-                    {"user_id": 20, "display_name": "Bianca"},
+                    {"user_id": 10, "display_name": "Alice"},
+                    {"user_id": 20, "display_name": "Bruno"},
                 ]
             },
             GLOSSARY_FILE,
         )
-        self.assertIn("Gudy", prompt)
-        self.assertIn("Bianca", prompt)
+        self.assertIn("Alice", prompt)
+        self.assertIn("Bruno", prompt)
         self.assertIn("Grafias esperadas:", prompt)
         self.assertLessEqual(len(prompt), 800)
 

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolverCaminho } from "./caminhos";
+import { resolveProjectPath } from "../../core/project-root";
+import { formatoSecao } from "./contrato-escrita";
 import {
   descreverEstruturaMemoria,
   ESTRUTURAS_MEMORIA,
@@ -25,18 +26,18 @@ export async function memoriaTemplate(
   }
   const pasta = estrutura.pasta;
 
-  const idx = join(resolverCaminho(pasta), "index.md");
-  if (!existsSync(idx)) {
-    return `Erro: sem index.md em "${pasta}". Escreva o template la.`;
-  }
+  const idx = join(resolveProjectPath("memory-template", pasta), "index.md");
   const contrato = descreverEstruturaMemoria(type);
   return [
     `Contrato estrutural de "${type}" (pasta ${pasta}):`,
     "",
     contrato,
+    "Contrato de inserção v2: versao=2; alteracoes=[{secao, modo, itens}].",
+    ...estrutura.secoes.map((section) => `${section.nome}: itens do tipo ${formatoSecao(type, section.nome)}.`),
+    "fato={tipo:'fato',texto,referencias?:[IDs]}; interesse={tipo:'interesse',nome,detalhe?}; relacao={tipo:'relacao',alvo_id,percepcoes:[textos]}. Não envie Markdown; IDs de relações precisam apontar para Pessoas existentes.",
     "",
     "Documentação completa do template:",
     "",
-    readFileSync(idx, "utf8").trim(),
+    existsSync(idx) ? readFileSync(idx, "utf8").trim() : "Sem documentação adicional; use o contrato canônico acima.",
   ].join("\n");
 }

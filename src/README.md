@@ -8,7 +8,7 @@ A interface Next.js não fica aqui: ela é um workspace separado em
 ## Dependências permitidas
 
 ```text
-cli ─────► agents ─────► core
+web ─────► agents ─────► core
  │           │            │
  └──────────►tools ◄───────┘
 ```
@@ -16,7 +16,7 @@ cli ─────► agents ─────► core
 - `core/` não conhece agentes específicos; executa perfis e function calls.
 - `agents/` define contexto, modelo, tools permitidas e handoffs.
 - `tools/` implementa operações locais compartilhadas.
-- `cli/` orquestra interação humana; somente a revisão aprovada escreve memória.
+- `web_interface/` orquestra interação humana; somente a revisão aprovada escreve memória.
 - `dev/` contém diagnósticos executados manualmente.
 
 ## Agentes
@@ -35,7 +35,7 @@ permissões. A implementação de uma tool continua em `tools/` para poder ser
 compartilhada sem duplicação.
 
 Para trocar o modelo de um agente, altere somente o campo `model` do perfil em
-`agents/registry.ts` e reinicie o processo em execução. CLI, interface web,
+`agents/registry.ts` e reinicie o processo em execução. Interface web,
 proveniência, cache do Analista e relatórios usam esse mesmo valor. O fallback
 do cliente HTTP em `core/glm.ts` existe apenas para chamadas genéricas e nunca é
 usado na construção de agentes.
@@ -45,7 +45,7 @@ Agentes atuais:
 - `conversante/`: conversa e consulta memória;
 - `analisador-call/`: interpreta transcrições multivoz e gera relatório com
   evidências;
-- `curador-chat/`: transforma a conversa direta em candidatos;
+- `curador-chat/`: GPT pela Responses API extrai fatos com evidências, Jev seleciona e roteia, o código prepara candidatos;
 - `curador-call/`: transforma o relatório do Analista em candidatos atribuídos
   e cobertura auditável.
 

@@ -17,6 +17,7 @@ import {
 } from "../tools/memoria/candidato";
 import { erroEstruturaCorpo } from "../tools/memoria/estrutura";
 import { preencherDocumentoCandidato } from "../tools/memoria/preencher";
+import { memoriaTemplate } from "../tools/memoria/template";
 import {
   camposDoTipo,
   erroSchemaAtualizacao,
@@ -28,15 +29,8 @@ const erros: string[] = [];
 const ids = new Map<string, { path: string; type: string }>();
 const arquivos: string[] = [];
 const referenciasEstruturadas: Array<{ path: string; field: string; ids: readonly string[] }> = [];
-
-if (!existsSync(resolve(raiz, "index.md"))) {
-  console.log(
-    "⚠ Bundle de memória ausente — nada a validar. Execute `npm run memory:init` para criar o bundle de demonstração e rodar esta validação.",
-  );
-  process.exit(0);
-}
-
-coletarConceitos(raiz, arquivos);
+if (existsSync(raiz)) coletarConceitos(raiz, arquivos);
+let projetoComParticipante: { path: string; id: string } | undefined;
 
 for (const arquivo of arquivos) {
   const path = relative(PROJECT_ROOT, arquivo).replace(/\\/g, "/");
@@ -62,8 +56,15 @@ for (const arquivo of arquivos) {
     erros.push(`${path}: type desconhecido ou ausente`);
     continue;
   }
-  const erroEstrutura = erroEstruturaCorpo(type, corpo, corpo);
+  const erroEstrutura = erroEstruturaCorpo(type, corpo);
   if (erroEstrutura) erros.push(`${path}: estrutura inválida: ${erroEstrutura}`);
+  for (const match of conteudo.matchAll(/\]\((\/[^)#\s]+\.md)(?:#[^)]*)?\)/gmu)) {
+    const destino = resolve(raiz, `.${match[1]}`);
+    const relativo = relative(raiz, destino);
+    if (relativo.startsWith("..") || !existsSync(destino)) {
+      erros.push(`${path}: link para memória inexistente: ${match[1]}`);
+    }
+  }
   for (const campo of [...obrigatorios, "id", "status", "generated"]) {
     if (!temChave(bloco, campo)) erros.push(`${path}: campo obrigatório ausente: ${campo}`);
   }
@@ -79,6 +80,12 @@ for (const arquivo of arquivos) {
     const values = campos[field];
     if (!Array.isArray(values)) continue;
     referenciasEstruturadas.push({ path, field, ids: values });
+  }
+  if (type.trim().toLowerCase() === "projeto" && !projetoComParticipante) {
+    const primeiroParticipante = Array.isArray(campos.participantes) ? campos.participantes[0] : undefined;
+    if (typeof primeiroParticipante === "string") {
+      projetoComParticipante = { path: path.replace(/^memory\//, ""), id: primeiroParticipante };
+    }
   }
 
   const id = campos.id;
@@ -97,6 +104,7 @@ validarProtecaoDosMetadados();
 validarLimpezaDeEvidencias();
 await validarProtecaoDaFila();
 validarPreenchedorEstrutural();
+await validarTemplatesVersionados();
 await validarGeracaoEBusca();
 validarIdentidadesDiscord();
 
@@ -194,7 +202,7 @@ function validarProtecaoDosMetadados(): void {
 function validarLimpezaDeEvidencias(): void {
   const original = [
     "- O encontro começou às 22:00 (fala_000094, 22:09:43).",
-    "- Outro fato [obs_00042, Usuário, 22:10:13].",
+    "- Outro fato [obs_00042, Pessoa, 22:10:13].",
     "- Horário real: 05:30.",
   ].join("\n");
   const limpo = removerMarcadoresEvidencia(original);
@@ -209,11 +217,12 @@ function validarLimpezaDeEvidencias(): void {
 async function validarProtecaoDaFila(): Promise<void> {
   limparFila();
   const resposta = await memoriaPrepararCandidato({
+    versao: 2,
     acao: "criar",
-    path: "validacao-local/candidato-inexistente",
+    path: "social/pessoas/candidato-inexistente",
     tipo_memoria: "Pessoa",
     frontmatter: { id: "mem_00000000-0000-4000-8000-000000000000" },
-    alteracoes: [{ secao: "Informações Gerais", conteudo: "Teste", modo: "acrescentar" }],
+    alteracoes: [{ secao: "Informações Gerais", itens: [{ tipo: "fato", texto: "Teste" }], modo: "acrescentar" }],
     motivo: "teste local",
     natureza_proposta: "explicita",
     evidencias: ["teste local"],
@@ -283,6 +292,21 @@ function validarPreenchedorEstrutural(): void {
   ) {
     erros.push("preenchedor não reuniu novas opiniões sob o alvo já existente em Relações");
   }
+  const relacaoAninhada = preencherDocumentoCandidato({
+    type: "Pessoa", frontmatter: { title: "Pessoa de teste" },
+    alteracoes: [{ secao: "Relações", conteudo: "### [Ana](/social/pessoas/integrantes/ana.md)\n- Considera Ana leal.", modo: "acrescentar" }],
+  });
+  const relacaoAninhadaAtualizada = preencherDocumentoCandidato({
+    type: "Pessoa", frontmatter: {},
+    conteudoAtual: montarPreviaMemoria("", relacaoAninhada.frontmatter, relacaoAninhada.corpo),
+    alteracoes: [{ secao: "Relações", conteudo: "### [Ana](/social/pessoas/integrantes/ana.md)\n- Admira Ana.", modo: "acrescentar" }],
+  });
+  if (erroEstruturaCorpo("Pessoa", relacaoAninhadaAtualizada.corpo)
+    || (relacaoAninhadaAtualizada.corpo.match(/### \[Ana\]\(\/social\/pessoas\/integrantes\/ana\.md\)/gmu) ?? []).length !== 1
+    || !relacaoAninhadaAtualizada.corpo.includes("Considera Ana leal.")
+    || !relacaoAninhadaAtualizada.corpo.includes("Admira Ana.")) {
+    erros.push("Relações não aceita ou não mescla links em subpastas de Pessoas");
+  }
   const corpoSemRelacoes = criado.corpo.replace(/\n\n## Relações[\s\S]*$/u, "");
   if (!erroEstruturaCorpo("Pessoa", corpoSemRelacoes, criado.corpo)) {
     erros.push("validador permitiu remover uma seção estrutural existente");
@@ -292,8 +316,9 @@ function validarPreenchedorEstrutural(): void {
     frontmatter: { title: "Grupo de teste" },
     alteracoes: [{ secao: "Humor", conteudo: "- Referência interna recorrente.", modo: "acrescentar" }],
   });
-  if (!grupo.corpo.includes("## Humor") || grupo.corpo.indexOf("## Humor") < grupo.corpo.indexOf("## Membros")) {
-    erros.push("preenchedor não criou Humor na ordem canônica de Grupo");
+  if (!["## Sobre", "## Membros", "## Dinâmica", "## Humor", "## Acordos"].every((titulo, index, titulos) =>
+    grupo.corpo.includes(titulo) && (index === 0 || grupo.corpo.indexOf(titulo) > grupo.corpo.indexOf(titulos[index - 1]!)))) {
+    erros.push("preenchedor não criou as seções de Grupo na ordem canônica");
   }
   const projeto = preencherDocumentoCandidato({
     type: "Projeto",
@@ -305,6 +330,8 @@ function validarPreenchedorEstrutural(): void {
   });
   if (
     !projeto.corpo.includes("## Estado Atual")
+    || !projeto.corpo.includes("## Propostas e Questões em Aberto")
+    || projeto.corpo.indexOf("## Propostas e Questões em Aberto") < projeto.corpo.indexOf("## Decisões")
     || !projeto.corpo.includes("## Próximos Passos")
     || projeto.frontmatter.inicio !== null
     || !Array.isArray(projeto.frontmatter.participantes)
@@ -327,7 +354,7 @@ function validarPreenchedorEstrutural(): void {
       frontmatter: { title: "Teste" },
       alteracoes: [{
         secao: "Interesses",
-        conteudo: "- **League of Legends** joga todo fim de semana com a turma do prédio; prefere suportes.",
+        conteudo: "- **League of Legends** joga o modo Arena; fez uma run de 3 mil de AP com Kayle na Season 1, em dupla com colega, e gerou um vídeo.",
         modo: "acrescentar",
       }],
     });
@@ -365,6 +392,15 @@ function validarPreenchedorEstrutural(): void {
   }
 }
 
+async function validarTemplatesVersionados(): Promise<void> {
+  const grupo = await memoriaTemplate({ type: "Grupo" });
+  const projeto = await memoriaTemplate({ type: "Projeto" });
+  if (!grupo.includes("## Dinâmica") || !grupo.includes("## Acordos")
+    || !projeto.includes("## Propostas e Questões em Aberto")) {
+    erros.push("modelos versionados divergem das novas seções canônicas");
+  }
+}
+
 async function validarGeracaoEBusca(): Promise<void> {
   const gerados = new Set<string>();
   for (let i = 0; i < 100; i++) {
@@ -388,31 +424,24 @@ async function validarGeracaoEBusca(): Promise<void> {
   if (!invalido.startsWith("Erro nos filtros:")) {
     erros.push("busca aceita id de memória inválido");
   }
-  const projects = await memoriaListar({ pasta: "projetos" });
-  const projetoComParticipantes = referenciasEstruturadas.find(
-    (item) => item.path.startsWith("memory/projetos/") && item.field === "participantes" && item.ids.length > 0,
-  );
-  if (projetoComParticipantes) {
-    const participante = projetoComParticipantes.ids[0];
-    if (!projects.includes("participantes=[") || !projects.includes(participante ?? "")) {
+  if (projetoComParticipante) {
+    const projects = await memoriaListar({ pasta: "projetos" });
+    if (!projects.includes("participantes=[") || !projects.includes(projetoComParticipante.id)) {
       erros.push("listagem de Projetos não expõe assinatura de participantes resolvida");
     }
     const relatedProjects = await memoriaBuscar({
       type: "Projeto",
-      relacionado_a_id: participante,
+      relacionado_a_id: projetoComParticipante.id,
     });
-    const caminhoProjeto = projetoComParticipantes.path.replace(/^memory\//, "");
-    if (!relatedProjects.includes(caminhoProjeto)) {
-      erros.push("busca relacional por ID não encontrou Projetos do participante");
+    if (!relatedProjects.includes(projetoComParticipante.path)) {
+      erros.push("busca relacional por ID não encontrou Projeto do participante");
     }
-  } else if (!projects.includes("participantes=[")) {
-    erros.push("listagem de Projetos não expõe assinatura de participantes resolvida");
   }
 }
 
 function validarIdentidadesDiscord(): void {
   const arquivo = resolve(PROJECT_ROOT, "discordbot/config/identidades_discord.json");
-  if (!existsSync(arquivo)) return;
+  if (!existsSync(arquivo) || arquivos.length === 0) return;
   let config: unknown;
   try {
     config = JSON.parse(readFileSync(arquivo, "utf8"));

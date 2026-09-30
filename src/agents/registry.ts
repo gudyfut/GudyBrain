@@ -1,7 +1,32 @@
 import { Agent, type AgentEvent } from "../core/agent";
 import { pipelineIdentitySuffix } from "./pipeline";
 
-export type AgentId = "conversante" | "curador-chat" | "curador-call" | "analisador-call";
+export type AgentId = "conversante" | "curador-chat" | "curador-call" | "analisador-call" | "recuperador-jev" | "resposta-memoria";
+
+/** Etapas sem tool-calling: Jev seleciona; Responses API pede leituras estruturadas e redige. */
+export const MEMORY_CHAT_PROFILES = {
+  curation: {
+    id: "curador-chat", model: "gpt-6-luna", provider: "responses-chatgpt",
+    instructionsFile: "src/agents/curador-chat/instructions.md", allowedTools: [],
+  },
+  retrieval: {
+    id: "recuperador-jev", model: "jev-latest", provider: "typesafe",
+    instructionsFile: "src/agents/recuperador-jev/instructions.md",
+    allowedTools: [],
+  },
+  answer: {
+    id: "resposta-memoria", model: "gpt-6-luna", provider: "responses-chatgpt",
+    instructionsFile: "src/agents/conversante/resposta-memoria.md",
+    inspectionInstructionsFile: "src/agents/conversante/inspecao-memoria.md",
+    allowedTools: [],
+  },
+} as const;
+
+export function memoryChatEnabled(): boolean {
+  const mode = process.env.CHAT_MODE?.trim() || "jev";
+  if (mode !== "jev" && mode !== "legacy") throw new Error("CHAT_MODE deve ser jev ou legacy.");
+  return mode === "jev";
+}
 
 export interface AgentProfile {
   readonly id: AgentId;
@@ -29,25 +54,6 @@ export const AGENT_PROFILES = {
     maxSteps: 8,
     maxTokens: 4096,
     temperature: 0.4,
-  },
-  curadorChat: {
-    id: "curador-chat",
-    nome: "Curador de chat",
-    responsabilidade: "Converter a conversa direta entre o usuário e Gudman em propostas de memória.",
-    model: "glm-5.2",
-    instructionsFile: "src/agents/curador-chat/instructions.md",
-    toolsDir: "src/agents/curador-chat/tools",
-    allowedTools: [
-      "memoria_listar",
-      "memoria_buscar",
-      "memoria_contextualizar",
-      "memoria_ler",
-      "memoria_template",
-      "memoria_preparar_candidato",
-    ],
-    maxSteps: 32,
-    maxTokens: 8192,
-    temperature: 0.3,
   },
   curadorCall: {
     id: "curador-call",
@@ -90,20 +96,6 @@ export interface CreateAgentOptions {
   readonly onStep?: (event: AgentEvent) => void;
 }
 
-/**
- * Modelo efetivo de um agente. Cada perfil define o próprio padrão; a variável
- * `GLM_MODEL` do `.env` sobrescreve apenas o agente conversante, que é o modelo
- * com quem o usuário conversa. Curadores e analista mantêm os modelos ajustados
- * por perfil para preservar a qualidade da curadoria.
- */
-export function resolveModel(profile: AgentProfile): string {
-  if (profile.id === "conversante") {
-    const override = process.env.GLM_MODEL?.trim();
-    if (override) return override;
-  }
-  return profile.model;
-}
-
 export function createAgentFromProfile(
   profile: AgentProfile,
   options: CreateAgentOptions,
@@ -115,7 +107,7 @@ export function createAgentFromProfile(
   return new Agent({
     apiKey: options.apiKey,
     onStep: options.onStep,
-    model: resolveModel(profile),
+    model: profile.model,
     instructionsFile: profile.instructionsFile,
     toolsDir: profile.toolsDir,
     allowedTools: profile.allowedTools,

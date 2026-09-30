@@ -86,6 +86,7 @@ export function previewMemoryChange(options: {
 export async function updateMemoryDocument(
   relativePath: string,
   content: string,
+  expectedRevision: string,
 ): Promise<{ summary: MemorySummary; content: string; result: string }> {
   const normalized = normalizarCaminhoRelativo(relativePath);
   const current = readMemory(normalized).content;
@@ -95,7 +96,7 @@ export async function updateMemoryDocument(
     path: normalized,
     frontmatter: edited.campos,
     corpo: edited.corpo,
-  }, { generatedBy: "gudman/editor-web" });
+  }, { generatedBy: "gudman/editor-web", expectedRevision });
   if (!result.startsWith("Atualizado")) throw new Error(result);
   return { ...readMemory(normalized), result };
 }

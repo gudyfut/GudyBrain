@@ -1,5 +1,6 @@
 import { erroSchemaCriacao } from "./schema";
 import { erroEstruturaCorpo } from "./estrutura";
+import { interpretarValorMemoria, serializarValorMemoria } from "./valores-yaml";
 
 const CAMPOS_GERENCIADOS = ["id", "status", "generated"] as const;
 
@@ -17,7 +18,7 @@ export function montarPreviaMemoria(
 ): string {
   if (!atual) {
     const linhas = Object.entries(campos).map(([chave, valor]) =>
-      `${chave}: ${serializarValor(valor)}`);
+      `${chave}: ${serializarValorMemoria(valor)}`);
     return `---\n${linhas.join("\n")}\n---\n\n${corpo.trim()}\n`;
   }
 
@@ -82,7 +83,7 @@ function parseDocumento(conteudo: string): DocumentoMemoriaEditavel {
     if ((CAMPOS_GERENCIADOS as readonly string[]).includes(chave)) {
       gerenciados[chave] = match[2].trim();
     } else {
-      campos[chave] = interpretarValor(match[2].trim());
+      campos[chave] = interpretarValorMemoria(match[2].trim());
     }
   }
   return { campos, corpo: partes.corpo, gerenciados };
@@ -98,51 +99,6 @@ function separarDocumento(conteudo: string): { frontmatter: string; corpo: strin
   return { frontmatter: match[1], corpo: match[2] };
 }
 
-function interpretarValor(valor: string): unknown {
-  if (valor === "null" || valor === "~") return null;
-  if (valor === "true") return true;
-  if (valor === "false") return false;
-  if (/^-?\d+(?:\.\d+)?$/.test(valor)) return Number(valor);
-  if (valor.startsWith("[") && valor.endsWith("]")) {
-    return separarLista(valor.slice(1, -1)).map(interpretarEscalarTexto);
-  }
-  return interpretarEscalarTexto(valor);
-}
-
-function interpretarEscalarTexto(valor: string): string {
-  const limpo = valor.trim();
-  if (limpo.startsWith('"') && limpo.endsWith('"')) {
-    try { return JSON.parse(limpo) as string; } catch { /* usa texto literal */ }
-  }
-  if (limpo.startsWith("'") && limpo.endsWith("'")) {
-    return limpo.slice(1, -1).replace(/''/g, "'");
-  }
-  return limpo;
-}
-
-function separarLista(valor: string): string[] {
-  if (!valor.trim()) return [];
-  const itens: string[] = [];
-  let atual = "";
-  let aspas: "'" | '"' | null = null;
-  let escape = false;
-  for (const caractere of valor) {
-    if (escape) { atual += caractere; escape = false; continue; }
-    if (caractere === "\\" && aspas === '"') { atual += caractere; escape = true; continue; }
-    if (caractere === "'" || caractere === '"') {
-      if (aspas === caractere) aspas = null;
-      else if (!aspas) aspas = caractere;
-      atual += caractere;
-      continue;
-    }
-    if (caractere === "," && !aspas) { itens.push(atual.trim()); atual = ""; continue; }
-    atual += caractere;
-  }
-  if (aspas) throw new Error("Lista com aspas não fechadas no frontmatter.");
-  itens.push(atual.trim());
-  return itens.filter(Boolean);
-}
-
 function mesclarLinhas(frontmatter: string, parcial: Record<string, unknown>): string {
   const pendentes = new Set(Object.keys(parcial));
   const linhas = frontmatter.split(/\r?\n/).map((linha) => {
@@ -150,24 +106,8 @@ function mesclarLinhas(frontmatter: string, parcial: Record<string, unknown>): s
     const chave = match?.[2];
     if (!chave || !pendentes.has(chave)) return linha;
     pendentes.delete(chave);
-    return `${match?.[1] ?? ""}${chave}: ${serializarValor(parcial[chave])}`;
+    return `${match?.[1] ?? ""}${chave}: ${serializarValorMemoria(parcial[chave])}`;
   });
-  for (const chave of pendentes) linhas.push(`${chave}: ${serializarValor(parcial[chave])}`);
+  for (const chave of pendentes) linhas.push(`${chave}: ${serializarValorMemoria(parcial[chave])}`);
   return linhas.join("\n");
-}
-
-function serializarValor(valor: unknown): string {
-  if (typeof valor === "string") {
-    if (!valor || /[:\[\]{}#]/.test(valor) || valor !== valor.trim()) return JSON.stringify(valor);
-    return valor;
-  }
-  if (Array.isArray(valor)) {
-    return `[${valor.map((item) => {
-      const texto = String(item);
-      return /[\[\],:#]/.test(texto) ? JSON.stringify(texto) : texto;
-    }).join(", ")}]`;
-  }
-  if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
-  if (valor === null) return "null";
-  return JSON.stringify(valor ?? "");
 }

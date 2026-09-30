@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 
 export function POST(): NextResponse {
   try {
-    return NextResponse.json({ id: createChatSession().id });
+    const session = createChatSession();
+    return NextResponse.json({ id: session.id, model: session.agent.model });
   } catch (error) {
     return apiError(error);
   }

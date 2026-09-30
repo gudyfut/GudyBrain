@@ -42,14 +42,16 @@ export const ESTRUTURAS_MEMORIA: readonly EstruturaMemoria[] = [
     pasta: "social/grupos",
     campos: ["type", "title", "description", "tipo", "membros", "tags"],
     secoes: [
-      { nome: "Sobre", finalidade: "Identidade, origem, propósito, história e dinâmica geral do grupo." },
+      { nome: "Sobre", finalidade: "Identidade, origem, propósito e história do grupo." },
       { nome: "Membros", finalidade: "Pessoas que compõem ou compuseram o grupo, preferencialmente com links e papéis relevantes." },
+      { nome: "Dinâmica", finalidade: "Atividades, hábitos de encontro, comunicação e formas recorrentes de convivência; episódios únicos pertencem a Evento." },
       { nome: "Humor", finalidade: "Estilo de humor coletivo, piadas recorrentes, memes e referências internas reconhecidas pelo grupo; não registrar uma brincadeira isolada como padrão." },
+      { nome: "Acordos", finalidade: "Combinados duráveis efetivamente aceitos pelo grupo; propostas e discussões não decididas pertencem a Projeto ou Evento." },
     ],
   },
   {
     type: "Conhecimento",
-    definicao: "Aprendizado, opinião, hipótese ou reflexão que o dono do bundle expôs deliberadamente como conhecimento próprio; falas casuais de terceiros não entram aqui.",
+    definicao: "Aprendizado, opinião, hipótese ou reflexão que a pessoa responsável pelo acervo expôs deliberadamente como conhecimento próprio; falas casuais de terceiros não entram aqui.",
     pasta: "conhecimento",
     campos: ["type", "title", "description", "natureza", "tags"],
     secoes: [
@@ -67,7 +69,8 @@ export const ESTRUTURAS_MEMORIA: readonly EstruturaMemoria[] = [
       { nome: "Visão Geral", finalidade: "Objetivo, problema, escopo e resultado pretendido pela iniciativa, sem transformar hipóteses em decisões." },
       { nome: "Estado Atual", finalidade: "Situação conhecida agora: ideia, planejamento, execução, bloqueios e condições ainda indefinidas." },
       { nome: "Participantes", finalidade: "Pessoas, grupos e organizações envolvidos, com links e papéis somente quando confirmados." },
-      { nome: "Decisões", finalidade: "Decisões efetivamente tomadas e critérios acordados; propostas em debate devem permanecer explicitamente marcadas como propostas." },
+      { nome: "Decisões", finalidade: "Decisões efetivamente tomadas e critérios acordados; não registrar propostas em debate aqui." },
+      { nome: "Propostas e Questões em Aberto", finalidade: "Hipóteses, alternativas e perguntas ainda não decididas, com autoria quando conhecida; não apresentar como compromisso do grupo." },
       { nome: "Próximos Passos", finalidade: "Ações futuras explicitamente combinadas, responsáveis e dependências; não inventar tarefas a partir de uma discussão." },
       { nome: "Histórico", finalidade: "Origem, mudanças e marcos do projeto, preferencialmente com links para Eventos relacionados." },
     ],
@@ -142,7 +145,7 @@ function erroConteudoRelacoes(conteudo: string): string | undefined {
   for (const linhaBruta of linhas) {
     const linha = linhaBruta.trim();
     if (!linha) continue;
-    const titulo = linha.match(/^### \[([^\]\r\n]+)\]\((\/social\/pessoas\/[a-z0-9-]+\.md)\)$/u);
+    const titulo = linha.match(/^### \[([^\]\r\n]+)\]\((\/social\/pessoas\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.md)\)$/u);
     if (titulo) {
       if (alvoAtual && itensDoAlvo === 0) {
         return `Relações precisa ter ao menos uma opinião abaixo de "${alvoAtual}".`;

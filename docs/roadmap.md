@@ -8,14 +8,10 @@
 - curadores independentes de chat e call que propõem Pessoas, Grupos, Lugares,
   Conhecimentos, Eventos e Projetos;
 - preenchedor determinístico que preserva e valida a estrutura dos documentos;
-- revisão humana no CLI e na interface web antes de criar, atualizar ou renomear;
-- interface web local com chat em streaming, biblioteca de memória, bancada de
-  revisão, controle do bot e painel de calls;
+- revisão humana na interface web antes de criar, atualizar ou renomear;
 - bot de Discord separado para gravação por participante e transcrição.
 - analista de call com extração em blocos, consolidação por tipo e classificação
-  local em Alto, Médio e Baixo potencial de memória antes do handoff ao curador;
-- separação entre código público e memória pessoal: `memory/` fica fora do
-  controle de versão e `memory-seed/` fornece o bundle de demonstração.
+  local em Alto, Médio e Baixo potencial de memória antes do handoff ao curador.
 
 ## Próximos passos
 
@@ -41,6 +37,7 @@ volume de memória enviado a cada agente.
 ### Qualidade e privacidade
 
 - ampliar testes locais de schemas, filtros e escrita;
+- definir política para separar código público de memória pessoal privada;
 - registrar origem e confiança de transcrições importadas;
 - medir custo e perda de contexto antes de introduzir qualquer agente novo.
 

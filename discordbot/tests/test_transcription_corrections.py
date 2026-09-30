@@ -24,8 +24,8 @@ class TranscriptionCorrectionsTests(unittest.TestCase):
                 json.dumps(
                     {
                         "rules": [
-                            {"canonical": "V3ga House", "variants": ["Vega House"]},
-                            {"canonical": "V3ga", "variants": ["Vega"]},
+                            {"canonical": "Equipe Aurora", "variants": ["Ekipe Orora"]},
+                            {"canonical": "Aurora", "variants": ["Orora"]},
                         ]
                     }
                 ),
@@ -33,12 +33,12 @@ class TranscriptionCorrectionsTests(unittest.TestCase):
             )
             rules = load_transcription_corrections(path)
             text, corrections = apply_transcription_corrections(
-                "A Vega House é uma referência da Vega.", rules
+                "A Ekipe Orora é uma referência da Orora.", rules
             )
-            self.assertEqual(text, "A V3ga House é uma referência da V3ga.")
+            self.assertEqual(text, "A Equipe Aurora é uma referência da Aurora.")
             self.assertEqual(
                 [(item["original"], item["canonical"]) for item in corrections],
-                [("Vega House", "V3ga House"), ("Vega", "V3ga")],
+                [("Ekipe Orora", "Equipe Aurora"), ("Orora", "Aurora")],
             )
 
     def test_partial_word_is_not_replaced(self) -> None:
@@ -46,14 +46,14 @@ class TranscriptionCorrectionsTests(unittest.TestCase):
             path = Path(directory) / "correcoes.json"
             path.write_text(
                 json.dumps(
-                    {"rules": [{"canonical": "V3ga", "variants": ["Vega"]}]}
+                    {"rules": [{"canonical": "Aurora", "variants": ["Orora"]}]}
                 ),
                 encoding="utf-8",
             )
             text, corrections = apply_transcription_corrections(
-                "Vega e Veganismo", load_transcription_corrections(path)
+                "Orora e Ororamente", load_transcription_corrections(path)
             )
-            self.assertEqual(text, "V3ga e Veganismo")
+            self.assertEqual(text, "Aurora e Ororamente")
             self.assertEqual(len(corrections), 1)
 
 
