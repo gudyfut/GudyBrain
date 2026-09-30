@@ -1,64 +1,36 @@
-# GudyBrain
+# Visão do projeto
 
-GudyBrain é um assistente pessoal de IA com memória de longo prazo, desenvolvido
-para manter contexto entre conversas sem depender apenas do histórico temporário
-de um chat. O sistema combina agentes especializados, armazenamento estruturado
-em Markdown, curadoria humana e processamento de conversas gravadas no Discord.
+O GudyBrain mantém contexto útil entre conversas por meio de um acervo local
+de memória. O foco é auxiliar pessoas, grupos e suas iniciativas, preservando
+autoria e revisão humana do que será registrado.
 
-## Funcionalidades
+## Componentes atuais
 
-- **Assistente com memória:** o Gudman consulta informações sobre pessoas,
-  grupos, lugares, eventos, preferências e conhecimentos conforme a necessidade,
-  sem carregar toda a base no contexto do modelo.
-- **Memória portátil:** os dados são armazenados em arquivos Markdown com YAML
-  frontmatter, IDs imutáveis e links entre registros, permitindo leitura humana,
-  validação automática e versionamento.
-- **Curadoria humana:** novas memórias são apresentadas como propostas antes da
-  persistência. O usuário pode revisar diferenças, editar o conteúdo, aprovar ou
-  rejeitar alterações.
-- **Análise de chamadas:** conversas do Discord podem ser gravadas em trilhas
-  separadas por participante, transcritas e organizadas em uma linha do tempo
-  com identificação de autoria.
-- **Extração assistida:** um agente analisa a conversa completa, identifica fatos,
-  relações, acontecimentos e contexto relevante; outro agente transforma essas
-  observações em propostas compatíveis com a estrutura da memória.
-- **Interface unificada:** uma aplicação web local reúne chat, biblioteca de
-  memórias, revisão de propostas, controle do bot e acompanhamento do fluxo de
-  gravação, transcrição, análise e curadoria.
-
-## Arquitetura
-
-O núcleo utiliza uma arquitetura multiagente com responsabilidades e permissões
-separadas:
-
-1. O **agente conversante** interage com o usuário e consulta a memória.
-2. O **analista de calls** interpreta transcrições e produz evidências atribuídas,
-   sem permissão para alterar dados; uma busca determinística anexa possíveis
-   correspondências com conceitos existentes.
-3. O **curador de chat** converte a conversa direta em propostas estruturadas.
-4. O **curador de call** trata observações multivoz, preserva atribuição e audita
-   cobertura, contexto e novidade em relação à memória vigente.
-5. Um **preenchedor determinístico** monta o Markdown sem permitir que o modelo
-   improvise a estrutura dos arquivos.
-6. A **camada de revisão humana** é a única autorizada a persistir alterações.
-
-Essa separação reduz conflitos de contexto, limita ações indevidas do modelo e
-mantém rastreável a origem das informações. O projeto é organizado como um
-monorepo: núcleo e agentes em TypeScript, interface Next.js em workspace próprio
-e bot do Discord como aplicação Python independente.
-
-## Tecnologias
-
-| Área | Tecnologias |
+| Componente | Papel |
 | --- | --- |
-| Inteligência artificial | GLM via API da z.ai, agentes com tool calling e prompts especializados |
-| Núcleo | TypeScript, Node.js, TSX e validação estrita com TypeScript |
-| Interface | Next.js, React, Route Handlers, React Markdown e Lucide Icons |
-| Memória | Markdown, YAML frontmatter, links e validações locais de esquema |
-| Discord | Python, Pycord, PyNaCl e captura de áudio por participante |
-| Transcrição | API Groq, Whisper Large V3, segmentação, cache e filtros de alucinação |
-| Qualidade | Testes de contratos dos agentes, validações de memória, análise de calls e curadoria |
+| Gudman | Conversa por texto/voz com recuperação de memória |
+| Jev | Triagem, navegação e julgamento de candidatos no chat |
+| Responses API | Inspeção de documentos, extração/redação e resposta GPT |
+| Memória Markdown | Conceitos com metadados, IDs, seções e links |
+| Curadoria | Propostas com evidências e escrita contratual |
+| Interface Next.js | Atlas, biblioteca, aprovação, calls e configurações |
+| Bot Python | Captura por participante e transcrição Groq |
+| Agentes GLM | Análise e curadoria de calls; chat legado |
 
-O resultado é um sistema local-first e extensível que transforma conversas em
-conhecimento pessoal estruturado, mantendo o usuário no controle do que é
-registrado permanentemente.
+## Princípios
+
+- A memória profunda não é alterada automaticamente pelos modelos.
+- O código monta e valida documentos; o modelo propõe dados delimitados.
+- Recuperação e curadoria têm responsabilidades e contextos distintos.
+- IDs preservam identidade; títulos e caminhos podem mudar.
+- Código e modelos são públicos; dados pessoais e credenciais ficam locais.
+
+“Local” descreve execução e armazenamento: contexto necessário ainda é enviado
+aos provedores de IA. Não é um assistente que funciona inteiramente offline.
+
+## Ler em seguida
+
+Use [o índice](README.md) para escolher um guia. A
+[arquitetura](arquitetura-agentes.md) descreve o funcionamento; o
+[roadmap](roadmap.md) contém propostas futuras e os [ADRs](adr/README.md)
+registram decisões duradouras.

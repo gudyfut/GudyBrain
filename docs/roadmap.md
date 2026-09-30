@@ -1,45 +1,37 @@
-# Roadmap de implementação
+# Roadmap
 
-## Estado atual
+As propostas abaixo são possibilidades de evolução, não funcionalidades
+entregues nem compromissos de prazo. O estado atual está na
+[visão do projeto](projeto.md) e nos [guias](README.md).
 
-- cliente GLM com streaming e function calling;
-- Gudman conversante com memória de curto prazo e consulta ao bundle;
-- memória Markdown estruturada com leitura, busca filtrada e escrita validada;
-- curadores independentes de chat e call que propõem Pessoas, Grupos, Lugares,
-  Conhecimentos, Eventos e Projetos;
-- preenchedor determinístico que preserva e valida a estrutura dos documentos;
-- revisão humana na interface web antes de criar, atualizar ou renomear;
-- bot de Discord separado para gravação por participante e transcrição.
-- analista de call com extração em blocos, consolidação por tipo e classificação
-  local em Alto, Médio e Baixo potencial de memória antes do handoff ao curador.
+## Recuperação e curadoria
 
-## Próximos passos
+- Calibrar limiares Jev com perguntas e conversas rotuladas.
+- Medir fatos úteis perdidos, identidade incorreta, duplicatas e contradições.
+- Melhorar recuperação de referências ambíguas mantendo contexto compacto.
+- Avaliar índices semânticos somente quando descrições, busca textual e links
+  forem insuficientes.
 
-### Evolução da análise de calls
+## Voz e desempenho
 
-- medir qualidade das observações e ajustar os limiares por tipo;
-- permitir correções humanas no relatório antes da curadoria;
-- manter métricas de custo, duração e reaproveitamento de cache.
+- Medir separadamente conexão, transcrição, busca, inspeção, resposta e síntese.
+- Reduzir chamadas sequenciais sem perder acesso integral aos documentos.
+- Avaliar conversa de áudio contínua e interrupções sem contornar a memória
+  ou a revisão humana existentes.
 
-### Inteligência temporal e lembretes
+## Calls
 
-- calcular idade a partir de `data_nascimento`, sem persistir idade;
-- consultar aniversários e eventos próximos;
-- representar recorrência separadamente de um Evento concreto;
-- manter rotinas temporais externas ao chat e o bundle como fonte canônica.
+- Melhorar correções humanas de autoria e evidências antes da curadoria.
+- Medir qualidade das observações por tipo e contexto da chamada.
+- Acompanhar duração, custo e reaproveitamento do cache.
 
-### Recuperação semântica
+## Memória e operação
 
-Adicionar embeddings ou outro índice somente quando busca textual, filtros e
-links deixarem de atender. A recuperação deve continuar progressiva e limitar o
-volume de memória enviado a cada agente.
+- Ampliar consultas temporais, recorrência e lembretes.
+- Melhorar backup/restauração de acervos privados.
+- Avaliar recuperação de operações que renomeiam múltiplos arquivos.
+- Manter privacidade e limites explícitos à medida que o acervo cresce.
 
-### Qualidade e privacidade
-
-- ampliar testes locais de schemas, filtros e escrita;
-- definir política para separar código público de memória pessoal privada;
-- registrar origem e confiança de transcrições importadas;
-- medir custo e perda de contexto antes de introduzir qualquer agente novo.
-
-As decisões sobre separação de agentes estão em
-[arquitetura-agentes.md](arquitetura-agentes.md).
+Mudanças de fronteiras arquiteturais devem ser registradas em
+[ADRs](adr/README.md); mudanças complexas podem usar
+[especificações](spec-driven-development.md).

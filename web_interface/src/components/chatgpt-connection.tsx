@@ -95,7 +95,7 @@ export function ChatGPTConnection({ onModelChange }: { onModelChange: () => void
       {connection?.connected && <button className="button ghost" disabled={busy} onClick={() => void mutate("signout")}><LogOut size={14} /> Desconectar</button>}
       <a className="button ghost" href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer"><ExternalLink size={14} /> Gerenciar uso</a>
     </div>
-    <p className="chatgpt-footnote">O consumo compartilha a cota do Codex / ChatGPT Work. Você pode definir um limite semanal para o Gudman no ChatGPT. As credenciais ficam protegidas neste computador.</p>
+    <p className="chatgpt-footnote">O consumo usa o plano ChatGPT da conta conectada. Consulte e ajuste os limites do aplicativo em Gerenciar uso. As credenciais ficam protegidas neste computador.</p>
   </section>;
 }
 

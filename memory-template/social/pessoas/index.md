@@ -13,7 +13,9 @@ informação sobre o coletivo pertence a Grupo. Frontmatter `type: Pessoa`.
   `null` quando ainda for desconhecida
 - `description`: uma frase curta; `null` se ainda desconhecida
 - `categoria`: `Familia` | `Amigo` | `Conhecido`; `null` quando não se aplica ou ainda é desconhecida
-- `vinculo`: texto livre; `null` se desconhecido — se `Familia`, é o **papel** (Primo, Tio, Irmão, Mãe...); se `Amigo`/`Conhecido`, é o **contexto de origem** (Infancia, Trabalho, Grupo de amigos...)
+- `vinculo`: texto livre, lista de textos ou `null` se desconhecido. Em `Familia`,
+  descreve o papel (Primo, Tio, Irmão, Mãe...); em `Amigo`/`Conhecido`, o contexto
+  de origem (Infancia, Trabalho, Grupo de amigos...).
 - `proximidade`: **int 0–5** (contato/proximidade) ou `null` — nunca "alta"/"baixa"
 - `afinidade`: **int 0–5** (sintonia/interesses em comum) ou `null`
 - `tags`: lista livre; use `[]` quando vazia

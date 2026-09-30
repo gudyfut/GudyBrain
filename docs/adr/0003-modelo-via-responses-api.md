@@ -39,8 +39,10 @@ Falhas não trocam silenciosamente de conta, modelo ou forma de cobrança.
 - Login e gerenciamento de sessão passam a ser responsabilidade do Gudman.
 - A geração pode chegar à interface em fragmentos, mas inspeções sequenciais
   continuam contribuindo para latência e consumo.
-- Uso do plano continua compartilhado com Codex/ChatGPT Work; a mudança não
-  concede outra cota. Elegibilidade e modelos dependem da conta.
+- A mudança não concede uma cota própria ao aplicativo. Uso, limites,
+  elegibilidade e modelos dependem do plano e da conta autorizada; consulte
+  [a configuração atual](../configuracao.md) e a
+  [documentação de uso](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
 - As restrições deste fluxo não permitem substituir a camada de voz Gemini.
 
 Referências: [registro e login](https://developers.openai.com/siwc/token-sharing-open-source/sign-in),

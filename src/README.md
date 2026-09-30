@@ -1,54 +1,35 @@
-# Código-fonte do assistente
+# Núcleo TypeScript
 
-Esta pasta contém a aplicação TypeScript. Prompts e definições de tools também
-são fonte executável, por isso ficam co-localizados com o agente que os usa.
-A interface Next.js não fica aqui: ela é um workspace separado em
-`web_interface/` e importa este núcleo sem duplicá-lo.
+A interface web importa este núcleo. Prompts e definições de ferramentas ficam
+junto dos agentes porque são parte de sua configuração executável.
 
-## Dependências permitidas
+## Organização
 
-```text
-web ─────► agents ─────► core
- │           │            │
- └──────────►tools ◄───────┘
-```
+| Pasta | Responsabilidade |
+| --- | --- |
+| `core/` | Runtime, provedores GLM/Jev/Responses, OAuth, ambiente e eventos |
+| `agents/` | Etapas especializadas, perfis e orquestração |
+| `tools/` | Operações locais e contratos compartilhados de memória |
+| `dev/` | Validações e diagnósticos, fora do fluxo do produto |
 
-- `core/` não conhece agentes específicos; executa perfis e function calls.
-- `agents/` define contexto, modelo, tools permitidas e handoffs.
-- `tools/` implementa operações locais compartilhadas.
-- `web_interface/` orquestra interação humana; somente a revisão aprovada escreve memória.
-- `dev/` contém diagnósticos executados manualmente.
+O servidor web orquestra a interação humana e chama agentes/ferramentas.
+Componentes de navegador não devem importar leitores de memória ou credenciais.
 
-## Agentes
+## Configurar agentes
 
-Cada agente ocupa uma pasta completa:
+[`agents/registry.ts`](agents/registry.ts) define perfis, valores padrão,
+limites, prompts e ferramentas permitidas. Os modelos do chat também respeitam
+`OPENAI_MODEL` e `JEV_MODEL`; os perfis GLM definem seus próprios modelos.
+Não basta alterar um único perfil para configurar todos os provedores.
 
-```text
-agents/<agente>/
-  index.ts          montagem ou handoff específico
-  instructions.md  system prompt
-  tools/*.md        schemas e orientação das tools visíveis ao modelo
-```
+Agentes com ferramentas precisam de definição em `tools/*.md`, permissão no
+perfil e handler em `tools/registry.ts`. O chat Jev/GPT usa pedidos estruturados
+validados pelo código, sem expor essas ferramentas aos modelos.
 
-O registro central em `agents/registry.ts` escolhe modelo, limites e
-permissões. A implementação de uma tool continua em `tools/` para poder ser
-compartilhada sem duplicação.
+O [índice dos agentes](agents/README.md) mostra as etapas.
+O contrato de escrita está em `tools/memoria/estrutura.ts` e
+`contrato-escrita.ts`; `preencher.ts` compila itens em Markdown.
+Só uma ação humana validada persiste propostas/edições.
 
-Para trocar o modelo de um agente, altere somente o campo `model` do perfil em
-`agents/registry.ts` e reinicie o processo em execução. Interface web,
-proveniência, cache do Analista e relatórios usam esse mesmo valor. O fallback
-do cliente HTTP em `core/glm.ts` existe apenas para chamadas genéricas e nunca é
-usado na construção de agentes.
-
-Agentes atuais:
-
-- `conversante/`: conversa e consulta memória;
-- `analisador-call/`: interpreta transcrições multivoz e gera relatório com
-  evidências;
-- `curador-chat/`: GPT pela Responses API extrai fatos com evidências, Jev seleciona e roteia, o código prepara candidatos;
-- `curador-call/`: transforma o relatório do Analista em candidatos atribuídos
-  e cobertura auditável.
-
-A montagem final do Markdown não é feita pelo modelo. Os curadores enviam
-deltas por seção e `tools/memoria/preencher.ts` produz o documento completo
-segundo o contrato central de `tools/memoria/estrutura.ts`.
+Consulte [arquitetura](../docs/arquitetura-agentes.md) para as fronteiras e
+[desenvolvimento](../docs/desenvolvimento.md) para os comandos de validação.

@@ -1,139 +1,79 @@
 # Arquitetura de agentes
 
-## Componentes
+O sistema separa recuperação, resposta, extração de fatos, montagem determinística
+e revisão humana. Cada etapa recebe seu contexto e permissões, sem herdar o
+histórico interno de outros agentes.
 
-O GudyBrain separa recuperação, resposta, curadoria, preenchimento determinístico
-e revisão humana:
+## Responsabilidades
 
-| Componente | Entrada | Permissões | Saída |
-| --- | --- | --- | --- |
-| Jev recuperador | mensagem, histórico e metadados | escolher nós enumerados pelo código | arquivos selecionados e eventos visuais |
-| Gudman / GPT pela Responses API | histórico e arquivos selecionados | geração sem ferramentas | resposta ao Murilo |
-| Analista de call | transcrição multivoz em blocos | leitura dirigida | `analise-call.json` e `.md` |
-| Curadoria de chat | falas com IDs e citações | GPT pela Responses API extrai/redige; Jev julga/roteia; código lê e preenche | candidatos e decisões auditáveis |
-| Curador de call | relatório do Analista | leitura, preparação e auditoria | candidatos + cobertura |
-| Preenchedor local | deltas do curador e arquivo atual | nenhuma IA ou escrita | documento completo validado |
-| Revisão humana | candidatos | escrita após aprovação | arquivos em `memory/` |
+| Componente | Entrada e resultado | Permissões |
+| --- | --- | --- |
+| Recuperador Jev | Mensagem/histórico/metadados → seleção e eventos | Escolher nós enumerados pelo código |
+| Conversador GPT | Histórico/documentos → inspeção e resposta | Pedir leituras estruturadas; sem ferramentas de sistema |
+| Curadoria de chat | Conversa com citações → candidatos | GPT extrai/redige; Jev julga/roteia; código valida |
+| Analista de call | Transcrição → relatório atribuído | Leitura dirigida; não prepara candidatos |
+| Curador de call | Relatório + memória vigente → candidatos e cobertura | Leitura, contextualização e preparação |
+| Preenchedor | Deltas + documento atual → Markdown validado | Não usa IA nem persiste |
+| Revisão/editor humano | Proposta ou edição → documento persistido | Escrita validada e controle de versão |
 
-```text
-Chat ─► GPT pela Responses API extrai ─► Jev seleciona ─► GPT pela Responses API redige itens ─┐
-                        ├─► deltas por seção ─► preenchedor ─► revisão ─► memory/
-Call ─► Analista ─► grounding indicativo ─► Curador de call ─┘
-```
-
-Cada agente nasce sem o histórico interno dos demais. O Gudman não pode propor
-ou escrever memória; o Analista não pode preparar candidatos; os curadores não
-podem persistir arquivos.
-
-`src/agents/pipeline.ts` declara, para cada agente, etapa, entrada, agente
-anterior, garantias e limitações da entrada, saída, consumidor seguinte e
-proibições. Agentes com ferramentas recebem esse bloco no prompt; a curadoria
-Jev/GPT pela Responses API tem etapas explícitas com validação no código. O `registry.ts`
-continua responsável somente pela configuração executável: modelo,
-temperatura, limites, arquivos e allowlist de ferramentas.
-
-## Por que existem dois curadores
-
-O chat tem Murilo como fonte factual principal e registra decisões por afirmação
-com citações verificadas nas mensagens. A call possui múltiplos autores, confiança variável, opiniões
-direcionais, timestamps e possíveis artefatos de transcrição. Misturar essas
-regras num único prompt aumentava contexto, ambiguidade e risco de atribuição
-incorreta.
-
-O Curador de chat trabalha somente com a conversa direta. O Curador de call
-trabalha somente com `analise-call.json`, preserva autoria e deve registrar o
-destino de toda observação média ou alta. Ambos compartilham apenas o contrato
-semântico dos tipos de memória.
-
-## Grounding e novidade
-
-O Analista extrai primeiro sem memória. Ao final, uma busca determinística
-acrescenta até três `possible_memory_matches` por observação usando tipo, texto,
-IDs, tags, descrição e referências estruturadas. Isso é uma pista, nunca uma
-decisão nem evidência da call.
-
-O Curador de call consulta novamente a memória vigente porque análises podem estar em
-cache. Antes de propor ou encerrar uma observação, ele deve classificá-la como
-`nova`, `complementar`, `reforco`, `contradicao`, `ja_memorizada`, `efemera` ou
-`ambigua`. O código exige listagem/busca do tipo, leitura integral para
-atualizações e comparações com arquivo existente, e impede que repetição ou
-conteúdo efêmero gere candidato. Candidatos guardam os paths consultados e a
-avaliação de novidade para a interface web.
-
-## Curadoria e preenchimento são etapas diferentes
-
-O modelo não reconstrói mais um arquivo Markdown inteiro. Ele informa:
-
-- conceito, ação e path;
-- campos novos ou corrigidos do frontmatter;
-- seção canônica e itens tipados do contrato v2;
-- natureza, evidências e, em calls, IDs das observações.
-
-`src/tools/memoria/preencher.ts` lê o documento atual, completa campos
-desconhecidos, preserva conteúdo existente e monta a proposta. Títulos, ordem e
-finalidade das seções vêm de `estrutura.ts`, também usado por templates e
-validadores. Criação, atualização e editor web validam novamente o corpo antes
-da escrita. Seções legadas podem ser preservadas, mas agentes não conseguem
-introduzir novas seções fora do contrato.
-
-## Organização
+## Fluxos
 
 ```text
-src/agents/
-├── registry.ts
-├── pipeline.ts
-├── conversante/
-├── analisador-call/
-├── curador-chat/
-├── curador-call/
-└── curadoria/contexto.ts
-
-src/tools/memoria/
-├── estrutura.ts    significado de tipos, campos e seções
-├── catalogo.ts      índice e ranking contextual determinístico
-├── contextualizacao.ts consultas e classificação de novidade auditáveis
-├── contextualizar.ts ferramenta de recuperação curta
-├── referencias.ts  integridade de IDs relacionais
-├── preencher.ts    deltas semânticos → documento completo
-├── candidato.ts    fila temporária e validação da proposta
-└── escrever.ts     persistência após aprovação
+Mensagem → índice local → Jev → documentos → inspeção GPT → resposta GPT
+Chat → extração GPT → julgamento Jev → itens GPT → proposta → revisão → memory/
+Call → analista GLM → curador GLM → proposta → revisão → memory/
 ```
 
-As etapas têm montagem e prompts locais; `tools/*.md` existe nas etapas GLM
-com tool-calling. Os perfis Jev/GPT pela Responses API do chat não expõem ferramentas ao modelo:
-a inspeção de documentos usa pedidos estruturados validados pelo código.
-`registry.ts` é a fonte canônica de modelo, limites, caminhos e allowlists; os
-perfis GLM também definem temperatura. Uma ferramenta visível precisa ter
-definição no agente, permissão no perfil e handler local.
+O conversador não propõe nem grava memória. Os curadores não persistem;
+os modelos fornecem dados delimitados e o código monta o documento.
+A biblioteca também admite salvar uma edição humana com as mesmas validações.
 
-## Análise de calls
+Chat e calls têm curadores distintos: chat usa a conversa direta e citações
+verificadas; calls exigem múltiplos autores, timestamps, confiança e cobertura
+das observações. Ambos compartilham o contrato de memória.
 
-Calls longas são divididas em blocos sobrepostos. O Analista consolida contexto,
-autoria, entidades, relações, eventos e evidências sem pedir que o Curador releia
-a transcrição. `conversation_context` calibra o rigor, mas não vale como
-evidência. Conhecimento é filtrado para aceitar somente exposição deliberada
-associada ao Criador.
+## Configuração executável
 
-Projetos, Grupos e Eventos carregam uma assinatura curta no frontmatter:
-`participantes`, `membros` e `lugares` usam IDs imutáveis. O corpo continua
-explicando nomes, links, papéis e relações. `memoria_listar` resolve esses IDs
-para títulos atuais, e `memoria_contextualizar` usa a sobreposição de entidades
-para diferenciar, por exemplo, uma nova ideia de empresa de um Projeto existente.
+- `src/agents/registry.ts`: perfis, valores padrão, prompts e ferramentas permitidas.
+- `src/core/llm.ts`: contrato de geração e seleção de `OPENAI_MODEL`.
+- `src/core/responses.ts` e `chatgpt-auth.ts`: transporte e autenticação ChatGPT.
+- `src/core/jev.ts`: avaliações TypeSafe.
+- `src/agents/pipeline.ts`: entradas, saídas e limites entre etapas.
+- `src/tools/registry.ts`: handlers locais das ferramentas GLM.
 
-## Fronteira de escrita
+Chat padrão usa Jev e Responses API sem ferramentas expostas ao modelo.
+Calls e o chat `legacy` usam GLM com tool-calling. Uma ferramenta GLM precisa
+de definição no agente, permissão no perfil e handler implementado.
 
-Somente a revisão humana chama `memoriaCriar` ou `memoriaAtualizar`. Os handlers
-protegem path, ID imutável, campos gerenciados, schema, datas e estrutura do
-corpo. Essa regra vale para a interface web.
+`OPENAI_MODEL` e `JEV_MODEL` sobrescrevem os padrões do chat. Modelos GLM são
+definidos nos perfis; não existe `GLM_MODEL` global. Veja
+[configuração](configuracao.md) antes de trocar um modelo.
 
-## Validações
+## Memória e escrita
 
-- `npm run check:agents`: perfis, prompts, definições, allowlists e handlers;
-- `npm run check:memory`: schema, IDs, preenchedor e estrutura;
-- `npm run check:calls`: chunking, relatório e cobertura;
-- `npm run check:curation`: revisão e aplicação web;
-- `npm run typecheck`: contratos TypeScript;
-- `npm run smoke:api`: diagnóstico explícito com chamadas reais.
+`estrutura.ts` define tipos, campos e seções. `preencher.ts` compila itens v2;
+`candidato.ts` valida propostas; `escrever.ts` protege persistência,
+IDs, referências e revisão-base.
 
-O aplicativo `discordbot/` não é um agente. Ele grava e transcreve áudio,
-entrega artefatos ao pipeline TypeScript e acompanha subprocessos com logs e DMs.
+Recuperação descobre a árvore local; escrita exige pastas e schemas conhecidos.
+Seções legadas podem ser preservadas nas condições do validador, mas agentes
+não podem introduzir livremente seções novas. Veja
+[estrutura](estrutura-memoria.md) e [seleção/escrita](memory-writing.md).
+
+## Particularidades das calls
+
+O analista extrai primeiro; a busca determinística acrescenta possíveis
+correspondências, nunca evidências. O contexto global calibra a análise, mas não
+prova um fato. O curador consulta os arquivos vigentes, mesmo com relatório em
+cache, e classifica novidade, duplicata, contradição ou ambiguidade.
+
+Pessoas/Grupos/Projetos/Eventos usam IDs estruturados para identificação.
+O corpo guarda nomes, papéis e links legíveis. Conhecimento exige exposição
+deliberada atribuída ao criador configurado. Veja [Calls](calls.md).
+
+## Navegar no código
+
+O [núcleo](../src/README.md), o [índice dos agentes](../src/agents/README.md)
+e a [interface](../web_interface/README.md) detalham suas áreas.
+As verificações estão em [desenvolvimento](desenvolvimento.md); decisões
+duradouras e seus motivos, em [ADRs](adr/README.md).

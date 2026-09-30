@@ -1,34 +1,35 @@
-# Interface web do GudyBrain
+# Interface web
 
-Subprojeto Next.js local responsável apenas pela apresentação e pela
-orquestração web. Agentes, ferramentas, memória e Discord bot permanecem na
-raiz do repositório e são reutilizados sem duplicação.
+Workspace Next.js que reúne apresentação, rotas locais e orquestração humana.
+Importa o núcleo em `src/`; o bot Python continua em `discordbot/`.
 
-## Estrutura
+## Organização
 
-```text
-src/app/          páginas e Route Handlers
-src/components/   workspaces React e estado de interação
-src/server/       BFF local, filas, filesystem e processos
-src/dev/          validações específicas da web
-```
+| Diretório | Conteúdo |
+| --- | --- |
+| `src/app/` | Páginas, endpoints e callback OAuth |
+| `src/components/` | Chat, atlas, revisão e voz |
+| `src/server/` | Sessões, filas, acesso validado a arquivos e processos |
+| `src/dev/` | Verificações da interface |
+| `public/` | Recursos estáticos, incluindo o AudioWorklet |
 
-## Comandos
+## Executar
 
-Prefira executar da raiz do repositório:
+Na raiz do repositório:
 
 ```powershell
+npm ci
 npm start
-npm run build
-npm run check:curation
 ```
 
-Para trabalhar diretamente neste workspace:
+Abra `http://127.0.0.1:3000`. `npm start`/`npm run dev` usam desenvolvimento.
+Para produção: `npm run build`, depois `npm run serve`.
+Para verificar somente este workspace:
+`npm run typecheck --workspace @gudybrain/web-interface`.
 
-```powershell
-npm run start --workspace @gudybrain/web-interface
-npm run typecheck --workspace @gudybrain/web-interface
-```
+O servidor escuta somente em localhost. Segredos e acervos são acessados no
+backend; o navegador recebe metadados/documentos apenas pelos fluxos autorizados.
+A transcrição Gemini usa um token temporário próprio, não a chave principal.
 
-O servidor escuta somente em `127.0.0.1`. Segredos, memórias e gravações nunca
-devem ser importados em componentes cliente; o acesso pertence a `src/server/`.
+Veja [configuração](../docs/configuracao.md), [uso e arquitetura web](../docs/interface-web.md)
+e [desenvolvimento](../docs/desenvolvimento.md).

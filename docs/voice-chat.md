@@ -1,11 +1,57 @@
-# Conversa por voz no chat
+# Conversa por voz
 
-O botão de microfone no chat inicia uma transcrição ao vivo. Clique novamente para terminar, revise o texto reconhecido e envie. A mensagem segue exatamente o mesmo fluxo do chat escrito: Jev decide e percorre a memória, GPT pela Responses API responde, e o percurso aparece no atlas. Após uma mensagem iniciada pelo microfone, a resposta é lida em voz alta. O botão **Ouvir** também permite reproduzir qualquer resposta concluída.
+Voz é um modo de entrada/saída do chat existente. Jev continua selecionando
+memória e GPT pela Responses API continua produzindo a resposta.
 
-Configure `GEMINI_API_KEY` apenas no `.env` da raiz e inicie a interface com `npm start`. O navegador precisa de permissão para o microfone; `localhost`/`127.0.0.1` ou HTTPS são necessários para captura de áudio. O servidor emite um token temporário limitado ao modelo `gemini-3.5-transcribe-live`; a chave principal nunca vai para o navegador. O áudio capturado é enviado diretamente ao Gemini por uma conexão Live e não é salvo em arquivo pelo Gudman.
+## Usar
 
-Para conferir a integração com os dois modelos sem enviar memória pessoal, execute explicitamente `npm run smoke:voice --workspace @gudybrain/web-interface`. Para medir token, conexão, transcrição, início e fim do áudio, use `npm run benchmark:voice --workspace @gudybrain/web-interface`. O teste de áudio direto do Gemini 3.8 Live é exploratório: se o modelo decidir não responder, o tempo esgota e não serve como medição de latência. `npm run benchmark:chat` mede Jev, inspeção e resposta GPT pela Responses API com uma árvore de memória fictícia. Esses diagnósticos usam as cotas das APIs e nunca rodam em `npm test`.
+Configure `GEMINI_API_KEY` no `.env` da raiz, reinicie a interface e conceda
+permissão de microfone no navegador.
 
-A resposta é sintetizada pelo modelo `gemini-3.8-flash-lite-tts` no servidor. O servidor transmite PCM 24 kHz em fluxo para que a reprodução comece com o primeiro trecho, sem esperar o áudio inteiro. O servidor só aceita texto de uma resposta do assistente já registrada naquela conversa. O texto falado remove a marcação Markdown mais comum; o texto original permanece no chat. O TTS recebe o texto da resposta, que pode conter informações derivadas das memórias consultadas, mas não recebe os arquivos de memória completos. No nível gratuito da API Gemini, o Google informa que o conteúdo pode ser usado para melhorar seus produtos; confira a política e a cota do seu projeto antes de falar sobre dados sensíveis.
+1. Clique no microfone para começar.
+2. Clique novamente para terminar a transcrição.
+3. Revise o texto reconhecido e envie.
+4. Aguarde a busca/resposta; uma mensagem originada do microfone é lida em voz alta.
 
-Este é um fluxo por turnos com revisão da transcrição. Não é ainda uma chamada de áudio simultânea em que se pode interromper o assistente enquanto ele raciocina. É possível interromper a reprodução pelo botão **Parar áudio**. Falha de transcrição ou de síntese não altera a memória nem a conversa já concluída.
+**Ouvir** reproduz uma resposta concluída; **Parar áudio** interrompe a
+reprodução. **Descartar** cancela a captura. Captura de áudio exige um contexto
+seguro no navegador, como localhost; a conexão ChatGPT deste aplicativo exige
+abrir a interface em `http://127.0.0.1`.
+
+## Fluxo e modelos implementados
+
+| Etapa | Implementação atual |
+| --- | --- |
+| Transcrição | Gemini Live, `gemini-3.5-transcribe-live` |
+| Busca e resposta | Mesmo fluxo do [chat escrito](jev-memory.md) |
+| Síntese | Gemini, `gemini-3.8-flash-lite-tts`, voz Charon |
+
+O servidor emite um token temporário limitado à transcrição. A chave principal
+não é enviada ao navegador. Áudio capturado segue diretamente para Gemini por
+uma conexão Live; o Gudman não o salva em arquivos de gravação.
+
+A síntese roda no servidor e transmite PCM 24 kHz. A reprodução começa com os
+primeiros trechos, sem aguardar o áudio inteiro. O servidor aceita somente
+texto de uma resposta já registrada na conversa; remove a marcação Markdown
+mais comum apenas para a fala.
+
+## Limites e dados enviados
+
+O fluxo é **por turnos**, com revisão da transcrição. Não é uma chamada de áudio
+simultânea com interrupção da geração pelo usuário. A síntese só começa após
+a resposta ser concluída; tempo de busca e inspeção também afeta a espera.
+
+O TTS recebe a resposta, que pode conter fatos derivados da memória, mas não
+recebe os arquivos completos. Confira políticas de dados, disponibilidade dos
+modelos e cotas no projeto Google AI Studio. Não há garantia de uso gratuito
+ilimitado. Falhas de voz não alteram a memória profunda.
+
+## Diagnosticar
+
+Os comandos de smoke/benchmark estão no [guia de desenvolvimento](desenvolvimento.md)
+e fazem chamadas reais. `benchmark:chat` mede busca e geração; `benchmark:voice`
+mede conexão, transcrição e início/fim do áudio.
+
+O benchmark de resposta direta com Gemini 3.8 Live é exploratório; se não
+produzir uma resposta, um timeout não representa uma medição válida de latência.
+Ele não substitui o fluxo de memória implementado.
