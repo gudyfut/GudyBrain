@@ -3,12 +3,13 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 BOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BOT_DIR))
 
-from gudybot.config import GLOSSARY_FILE, TRANSCRIPTION_MODEL  # noqa: E402
+from gudybot.config import TRANSCRIPTION_MODEL  # noqa: E402
 from gudybot.transcription.groq import (  # noqa: E402
     AudioPart,
     build_prompt,
@@ -70,18 +71,22 @@ class GroqTranscriptionTests(unittest.TestCase):
         self.assertEqual(result["segments"][0]["start"], 11.0)
 
     def test_prompt_includes_participants_and_glossary(self) -> None:
-        prompt = build_prompt(
-            {
-                "participants": [
-                    {"user_id": 10, "display_name": "Alice"},
-                    {"user_id": 20, "display_name": "Bruno"},
-                ]
-            },
-            GLOSSARY_FILE,
-        )
+        with TemporaryDirectory() as directory:
+            glossary_file = Path(directory) / "glossary.txt"
+            glossary_file.write_text("Equipe Exemplo, TypeScript", encoding="utf-8")
+            prompt = build_prompt(
+                {
+                    "participants": [
+                        {"user_id": 10, "display_name": "Alice"},
+                        {"user_id": 20, "display_name": "Bruno"},
+                    ]
+                },
+                glossary_file,
+            )
         self.assertIn("Alice", prompt)
         self.assertIn("Bruno", prompt)
         self.assertIn("Grafias esperadas:", prompt)
+        self.assertIn("Equipe Exemplo, TypeScript", prompt)
         self.assertLessEqual(len(prompt), 800)
 
 
