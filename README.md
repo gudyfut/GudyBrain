@@ -42,6 +42,7 @@ modelos. Comece por [memory-template/index.md](memory-template/index.md).
 
 Os dados ficam em arquivos locais, mas as etapas de IA enviam contexto aos
 provedores configurados. Consulte os guias de busca, voz e calls.
+O servidor é de uso local e individual; veja [segurança e privacidade](SECURITY.md).
 
 ## Organização
 

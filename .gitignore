@@ -4,6 +4,10 @@ dist/
 web_interface/.next/
 *.tsbuildinfo
 .env
+.env.*
+!.env.example
+*.env.tmp
+.env.tmp
 *.log
 
 # Acervos de memória pessoais; apenas modelos e contratos ficam versionados.

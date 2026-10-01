@@ -20,14 +20,15 @@
     "benchmark:chat": "tsx src/dev/benchmark-chat.ts",
     "check:retrieval": "tsx src/dev/validate-jev-retrieval.ts",
     "check:writing": "tsx src/dev/validate-memory-writing.ts",
-    "test": "npm run typecheck && npm run check:agents && npm run check:memory && npm run check:calls && npm run check:curation && npm run check:retrieval && npm run check:writing && npm run check:selection && npm run check:retrieval-view --workspace @gudybrain/web-interface && npm run check:context && npm run check:responses",
+    "test": "npm run typecheck && npm run check:agents && npm run check:memory && npm run check:calls && npm run check:curation && npm run check:retrieval && npm run check:writing && npm run check:selection && npm run check:retrieval-view --workspace @gudybrain/web-interface && npm run check:context && npm run check:responses && npm run check:local-access",
     "typecheck": "npm run typecheck:core && npm run typecheck --workspace @gudybrain/web-interface",
     "typecheck:core": "tsc --noEmit",
     "check:selection": "tsx src/dev/validate-chat-selection.ts",
     "check:chat-ui": "node web_interface/src/dev/validate-chat-browser.mjs",
     "check:context": "tsx src/dev/validate-memory-context.ts",
     "smoke:responses": "tsx src/dev/smoke-responses.ts",
-    "check:responses": "tsx src/dev/validate-responses.ts"
+    "check:responses": "tsx src/dev/validate-responses.ts",
+    "check:local-access": "tsx web_interface/src/dev/validate-local-access.ts"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
