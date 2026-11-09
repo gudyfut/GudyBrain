@@ -5,7 +5,7 @@
 - [x] Migrar seleção, curadoria, configuração e interface.
 - [x] Atualizar ADR e guias afetados.
 - [x] Validar contratos, integração, regressões, navegador e build local.
-- [ ] Revisar e publicar na branch `codex/gpt-live`.
+- [x] Revisar e publicar na branch `codex/gpt-live`.
 
 Validação: `npm test` com raiz fictícia; `npm run build` na raiz do checkout;
 `npm run check:chat-ui`; `npm run check:voice-ui --workspace @gudybrain/web-interface`;

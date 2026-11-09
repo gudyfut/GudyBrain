@@ -1,6 +1,6 @@
 # Decisions para seleção de memória
 
-Estado: implementado e validado localmente. Data: 2026-11-09.
+Estado: concluída. Data: 2026-11-09.
 
 Substituir Jev/TypeSafe pela Decisions API na branch `codex/gpt-live`, dando
 continuidade à [integração de voz](../2026-11-gpt-live/spec.md).
