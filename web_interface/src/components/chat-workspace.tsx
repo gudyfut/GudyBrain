@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, BrainCircuit, Command, CornerDownLeft, LoaderCircle, MessageCircleMore, Mic, Plus, Square, UserRound, Volume2, Wrench, X } from "lucide-react";
+import { Bot, BrainCircuit, Command, CornerDownLeft, LoaderCircle, MessageCircleMore, Mic, MicOff, PhoneOff, Plus, Square, UserRound, Wrench, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -11,10 +11,10 @@ import { MemoryAtlas } from "./memory-atlas";
 import { FloatingChat } from "./floating-chat";
 import "./neural-chat.css";
 import { initialTrace, reduceTrace, type RetrievalTrace } from "./retrieval-state";
-import { startVoiceTranscription, type VoiceCapture } from "./voice-transcription";
-import { StreamedSpeech } from "./streamed-speech";
+import { startLiveVoice, type LiveCall } from "./live-voice";
+import { formatVoiceTime, type LiveSnapshot } from "../shared/live";
 
-interface UiMessage { id: string; role: "user" | "assistant"; content: string; trace?: RetrievalTrace }
+interface UiMessage { id: string; role: "user" | "assistant"; content: string; trace?: RetrievalTrace; voiceId?: string }
 
 const commands = [
   { command: "/memorizar", title: "Memorizar conversa", description: "Entrega a conversa ao curador e abre as propostas." },
@@ -33,34 +33,35 @@ export function ChatWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [model, setModel] = useState<string | null>(null);
-  const [voicePhase, setVoicePhase] = useState<"idle" | "connecting" | "listening" | "finishing">("idle");
-  const [voicePreview, setVoicePreview] = useState("");
-  const [voiceDraft, setVoiceDraft] = useState(false);
-  const [speechState, setSpeechState] = useState<"idle" | "loading" | "playing">("idle");
-  const [speechMessageId, setSpeechMessageId] = useState<string | null>(null);
+  const [voice, setVoice] = useState<LiveSnapshot | null>(null);
+  const [voiceConnecting, setVoiceConnecting] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [playbackBlocked, setPlaybackBlocked] = useState(false);
+  const [voiceTrace, setVoiceTrace] = useState<RetrievalTrace | undefined>();
+  const voiceActive = voiceConnecting || !!voice && voice.phase !== "closed";
   const generation = useRef(0);
   const requestBusy = useRef(false);
   const nearBottom = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const voiceCapture = useRef<VoiceCapture | null>(null);
+  const voiceCall = useRef<LiveCall | null>(null);
+  const voiceAbort = useRef<AbortController | null>(null);
   const voiceEpoch = useRef(0);
-  const speechEpoch = useRef(0);
-  const speechAbort = useRef<AbortController | null>(null);
-  const speechAudio = useRef<StreamedSpeech | null>(null);
+  const voiceTraceRef = useRef<RetrievalTrace | undefined>(undefined);
 
   useEffect(() => { void newSession(); return () => {
-    generation.current++; voiceEpoch.current++; abortRef.current?.abort(); voiceCapture.current?.cancel();
-    speechAbort.current?.abort(); speechAudio.current?.stop();
+    generation.current++; voiceEpoch.current++; abortRef.current?.abort();
+    voiceAbort.current?.abort(); voiceCall.current?.dispose();
   }; }, []);
   useEffect(() => { if (nearBottom.current) endRef.current?.scrollIntoView({ behavior: busy ? "auto" : "smooth" }); }, [messages, activity, busy]);
 
   async function newSession(): Promise<void> {
     const version = ++generation.current;
+    await stopVoice();
+    if (version !== generation.current) return;
     abortRef.current?.abort(); abortRef.current = null; requestBusy.current = false;
-    voiceEpoch.current++; voiceCapture.current?.cancel(); voiceCapture.current = null;
-    setVoicePhase("idle"); setVoicePreview(""); setVoiceDraft(false); stopSpeech();
+    setVoice(null); setVoiceTrace(undefined); voiceTraceRef.current = undefined;
     setSelectedId(null); setSessionId(null); setBusy(false); setMessages([]); setError(null); setActivity(null);
     nearBottom.current = true;
     try {
@@ -73,100 +74,73 @@ export function ChatWorkspace() {
     } catch (caught) { if (generation.current === version) setError(caught instanceof Error ? caught.message : String(caught)); }
   }
 
-  function stopSpeech(): void {
-    speechEpoch.current++;
-    speechAbort.current?.abort(); speechAbort.current = null;
-    speechAudio.current?.stop(); speechAudio.current = null;
-    setSpeechState("idle"); setSpeechMessageId(null);
-  }
-
-  async function playSpeech(text: string, messageId: string, currentSessionId = sessionId): Promise<void> {
-    if (!currentSessionId || !text.trim()) return;
-    stopSpeech();
-    const version = speechEpoch.current;
-    const controller = new AbortController();
-    speechAbort.current = controller;
-    setSpeechState("loading"); setSpeechMessageId(messageId);
-    try {
-      const player = new StreamedSpeech();
-      speechAudio.current = player;
-      await player.resume();
-      const response = await fetch("/api/chat/voice/speech", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: currentSessionId, text }), signal: controller.signal,
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(data.error ?? "Não foi possível gerar a voz.");
-      }
-      if (!response.body || !response.headers.get("Content-Type")?.toLowerCase().startsWith("audio/l16")) throw new Error("Formato de áudio inesperado.");
-      const reader = response.body.getReader();
-      while (true) {
-        const { value, done } = await reader.read();
-        if (version !== speechEpoch.current) { await reader.cancel(); return; }
-        if (done) break;
-        if (player.append(value)) setSpeechState("playing");
-      }
-      await player.finish();
-      if (version === speechEpoch.current) stopSpeech();
-    } catch (caught) {
-      if (version !== speechEpoch.current || controller.signal.aborted) return;
-      stopSpeech();
-      setError(caught instanceof Error ? caught.message : String(caught));
-    }
-  }
-
   async function startVoice(): Promise<void> {
-    if (!sessionId || requestBusy.current || voicePhase !== "idle") return;
-    stopSpeech(); setError(null); setVoicePreview(""); setVoicePhase("connecting");
-    const version = ++voiceEpoch.current;
+    if (!sessionId || requestBusy.current || voiceActive) return;
+    const epoch = ++voiceEpoch.current;
+    const abort = new AbortController();
+    voiceAbort.current = abort;
+    setVoiceConnecting(true); setVoice(null); setError(null); setMuted(false); setPlaybackBlocked(false);
+    voiceTraceRef.current = undefined; setVoiceTrace(undefined);
+    nearBottom.current = true;
     try {
-      const capture = await startVoiceTranscription(sessionId,
-        (text) => { if (version === voiceEpoch.current) setVoicePreview(text); },
-        (message) => { if (version === voiceEpoch.current) {
-          voiceCapture.current = null; setVoicePhase("idle"); setError(message);
-        } },
-      );
-      if (version !== voiceEpoch.current) { capture.cancel(); return; }
-      voiceCapture.current = capture;
-      setVoicePhase("listening");
+      const call = await startLiveVoice({ sessionId, signal: abort.signal,
+        onSnapshot: (state) => {
+          if (epoch !== voiceEpoch.current) return;
+          setVoice(state);
+          setActivity(state.activity);
+          if (state.error) setError(state.error);
+          const lastAssistant = state.messages.findLast((message) => message.role === "assistant");
+          setMessages((current) => [...current.filter((message) => message.voiceId !== state.id),
+            ...state.messages.map((message) => ({ ...message, voiceId: state.id,
+              trace: message.id === lastAssistant?.id ? voiceTraceRef.current : undefined }))]);
+          if (lastAssistant) setSelectedId(lastAssistant.id);
+        },
+        onRetrieval: (event) => {
+          if (epoch !== voiceEpoch.current) return;
+          voiceTraceRef.current = reduceTrace(event.phase === "gate" ? initialTrace() : voiceTraceRef.current ?? initialTrace(), event);
+          setVoiceTrace(voiceTraceRef.current);
+        },
+        onPlaybackBlocked: () => { if (epoch === voiceEpoch.current) setPlaybackBlocked(true); },
+        onFailure: (message) => { if (epoch === voiceEpoch.current) setError(message); },
+        onEnded: () => {
+          if (epoch !== voiceEpoch.current) return;
+          voiceCall.current = null; setVoiceConnecting(false); setActivity(null);
+          setVoice((current) => current ? { ...current, phase: "closed" } : null);
+        },
+      });
+      if (epoch !== voiceEpoch.current || abort.signal.aborted) { call.dispose(); return; }
+      voiceCall.current = call;
+      setVoiceConnecting(false);
     } catch (caught) {
-      if (version === voiceEpoch.current) {
-        setVoicePhase("idle"); setError(caught instanceof Error ? caught.message : String(caught));
+      if (epoch === voiceEpoch.current) {
+        setVoiceConnecting(false);
+        if (!abort.signal.aborted) setError(caught instanceof Error ? caught.message : "Não foi possível iniciar a voz.");
       }
     }
   }
 
-  async function finishVoice(): Promise<void> {
-    const capture = voiceCapture.current;
-    if (!capture || voicePhase !== "listening") return;
-    setVoicePhase("finishing");
-    const version = voiceEpoch.current;
-    try {
-      const transcript = await capture.stop();
-      if (version !== voiceEpoch.current) return;
-      if (!transcript.trim()) throw new Error("Não recebi uma transcrição. Tente falar novamente.");
-      setInput((current) => [current.trim(), transcript.trim()].filter(Boolean).join(" "));
-      setVoiceDraft(true);
-      setVoicePreview("");
-      requestAnimationFrame(() => inputRef.current?.focus());
-    } catch (caught) {
-      if (version === voiceEpoch.current) setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      if (version === voiceEpoch.current) { voiceCapture.current = null; setVoicePhase("idle"); }
+  async function stopVoice(): Promise<void> {
+    const call = voiceCall.current;
+    if (call) {
+      setVoice((current) => current ? { ...current, phase: "closing" } : null);
+      await call.stop();
+      voiceCall.current = null;
+    } else {
+      voiceEpoch.current++;
+      voiceAbort.current?.abort();
+      setVoice((current) => current ? { ...current, phase: "closed" } : null);
     }
+    voiceAbort.current = null;
+    setVoiceConnecting(false); setActivity(null);
   }
 
-  function cancelVoice(): void {
-    voiceEpoch.current++;
-    voiceCapture.current?.cancel();
-    voiceCapture.current = null;
-    setVoicePhase("idle");
-    setVoicePreview("");
+  function toggleMute(): void {
+    voiceCall.current?.mute(!muted);
+    setMuted(!muted);
   }
 
   async function curate(): Promise<void> {
-    if (!sessionId || !messages.length || requestBusy.current) return;
+    if (!sessionId || !messages.length || requestBusy.current || voiceActive) return;
     const version = generation.current;
     requestBusy.current = true; setBusy(true); setActivity("Preparando curadoria…"); setError(null);
     try {
@@ -183,15 +157,12 @@ export function ChatWorkspace() {
 
   async function send(): Promise<void> {
     const text = input.trim();
-    if (!text || requestBusy.current || !sessionId || voicePhase !== "idle") return;
+    if (!text || requestBusy.current || !sessionId || voiceActive) return;
     if (text === "/limpar") { setInput(""); await newSession(); return; }
     if (text === "/ajuda") { setInput(""); setCommandsOpen(true); return; }
     if (text === "/memorizar") { setInput(""); await curate(); return; }
 
     const version = generation.current;
-    const readAloud = voiceDraft;
-    setVoiceDraft(false);
-    stopSpeech();
     requestBusy.current = true; nearBottom.current = true;
     const userMessage: UiMessage = { id: crypto.randomUUID(), role: "user", content: text };
     const assistantId = crypto.randomUUID();
@@ -201,7 +172,6 @@ export function ChatWorkspace() {
     const controller = new AbortController();
     abortRef.current = controller;
     let pending = "";
-    let answerText = "";
     let completed = false;
     let outcome: "done" | "cancelled" | "error" = "done";
     let frame: number | null = null;
@@ -231,7 +201,6 @@ export function ChatWorkspace() {
           const event = JSON.parse(line) as { type: string; content?: string; name?: string; message?: string; event?: RetrievalEvent };
           if (event.type === "content" && event.content) {
             pending += event.content;
-            answerText += event.content;
             if (frame === null) frame = requestAnimationFrame(flush);
             setActivity(null);
           } else if (event.type === "retrieval" && event.event) {
@@ -258,23 +227,20 @@ export function ChatWorkspace() {
         setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, trace: message.trace ? { ...message.trace, phase: outcome } : undefined } : message));
         setBusy(false); setActivity(null); abortRef.current = null; requestBusy.current = false;
         requestAnimationFrame(() => inputRef.current?.focus());
-        if (completed && outcome === "done" && readAloud && answerText.trim()) {
-          void playSpeech(answerText, assistantId, sessionId);
-        }
       }
     }
   }
 
   return (
-    <div className="chat-page neural-chat">
-      <MemoryAtlas trace={messages.find((message) => message.id === selectedId)?.trace} selectedId={selectedId} busy={busy} onSelect={setSelectedId} moments={messages.flatMap((message, index) => message.role === "assistant" ? [{ id: message.id, label: messages[index - 1]?.content ?? "Conversa", phase: message.trace?.phase }] : [])} />
-      <FloatingChat busy={busy}>
+    <div className={"chat-page neural-chat" + (voiceActive ? " live-voice-active" : "")}>
+      <MemoryAtlas trace={voiceActive ? voiceTrace : messages.find((message) => message.id === selectedId)?.trace} selectedId={selectedId} busy={busy} onSelect={setSelectedId} moments={messages.flatMap((message, index) => message.role === "assistant" ? [{ id: message.id, label: messages[index - 1]?.content ?? "Conversa", phase: message.trace?.phase }] : [])} />
+      <FloatingChat busy={busy} voiceActive={voiceActive}>
       <header className="chat-topbar">
 
         <div className="chat-actions">
           <button className="button ghost" onClick={() => setCommandsOpen((value) => !value)}><Command size={16} /> Comandos</button>
           <button className="button ghost" onClick={() => void newSession()}><Plus size={16} /> Nova conversa</button>
-          <button className="button primary" disabled={!messages.length || busy} onClick={() => void curate()}><BrainCircuit size={16} /> Memorizar</button>
+          <button className="button primary" disabled={!messages.length || busy || voiceActive} onClick={() => void curate()}><BrainCircuit size={16} /> Memorizar</button>
         </div>
       </header>
       <div className={commandsOpen ? "chat-body commands-visible" : "chat-body"}>
@@ -283,13 +249,32 @@ export function ChatWorkspace() {
             {!messages.length && <div className="chat-welcome"><span className="welcome-mark"><MessageCircleMore size={27} /></span><span className="eyebrow">Conectado à sua memória</span><h1>Uma ideia. Novas conexões.</h1><p>Converse comigo e acompanhe o contexto ganhando forma no núcleo.</p><div className="prompt-suggestions"><button onClick={() => setInput("O que você lembra sobre as pessoas mais próximas de mim?")}>Pessoas próximas</button><button onClick={() => setInput("Me ajude a organizar o que tenho pensado ultimamente.")}>Organizar pensamentos</button><button onClick={() => setInput("Quais eventos marcantes estão registrados?")}>Eventos marcantes</button></div></div>}
             {messages.map((message, index) => {
               const targetId = message.role === "assistant" ? message.id : messages[index + 1]?.id;
-              return <article className={`message ${message.role} ${selectedId === targetId ? "moment-selected" : ""}`} key={message.id} onClick={(event) => { if (targetId && !(event.target as Element).closest("a, button")) setSelectedId(targetId); }}><div className="message-avatar">{message.role === "user" ? <UserRound size={14} /> : <Bot size={14} />}</div><div className="message-content"><span className="message-author">{message.role === "user" ? "Você" : "Gudman"}</span>{message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : busy && message.id === messages.at(-1)?.id && message.role === "assistant" ? <div className="typing"><i /><i /><i /></div> : message.trace?.phase === "cancelled" ? <p>Resposta interrompida.</p> : message.trace?.phase === "error" ? <p>Não foi possível concluir a resposta.</p> : null}{message.role === "assistant" && <div className="message-tools"><button className="message-moment" aria-pressed={selectedId === message.id} onClick={() => setSelectedId(message.id)}><BrainCircuit size={12} />{message.trace?.phase === "cancelled" ? "Busca cancelada" : message.trace?.phase === "error" ? "Busca interrompida" : selectedId === message.id ? "Percurso em exibição" : "Ver percurso no núcleo"}</button>{message.content && <button className="message-moment" onClick={() => speechMessageId === message.id ? stopSpeech() : void playSpeech(message.content, message.id)}>{speechMessageId === message.id ? speechState === "loading" ? <LoaderCircle size={12} className="spin-icon" /> : <Square size={11} /> : <Volume2 size={12} />}{speechMessageId === message.id ? speechState === "loading" ? "Preparando voz" : "Parar áudio" : "Ouvir"}</button>}</div>}</div></article>;
+              return <article className={`message ${message.role} ${selectedId === targetId ? "moment-selected" : ""}`} key={message.id} onClick={(event) => { if (targetId && !(event.target as Element).closest("a, button")) setSelectedId(targetId); }}><div className="message-avatar">{message.role === "user" ? <UserRound size={14} /> : <Bot size={14} />}</div><div className="message-content"><span className="message-author">{message.role === "user" ? "Você" : "Gudman"}{message.voiceId ? " · voz" : ""}</span>{message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : busy && message.id === messages.at(-1)?.id && message.role === "assistant" ? <div className="typing"><i /><i /><i /></div> : message.trace?.phase === "cancelled" ? <p>Resposta interrompida.</p> : message.trace?.phase === "error" ? <p>Não foi possível concluir a resposta.</p> : null}{message.role === "assistant" && <div className="message-tools"><button className="message-moment" aria-pressed={selectedId === message.id} onClick={() => setSelectedId(message.id)}><BrainCircuit size={12} />{message.trace?.phase === "cancelled" ? "Busca cancelada" : message.trace?.phase === "error" ? "Busca interrompida" : selectedId === message.id ? "Percurso em exibição" : "Ver percurso no núcleo"}</button></div>}</div></article>;
             })}
             {activity && <div className="agent-activity"><LoaderCircle size={14} className="spin-icon" />{activity.includes("Consultando") ? <Wrench size={13} /> : null}<span>{activity}</span></div>}
             {error && <div className="error-banner">{error}{error.includes("Configurações") && <a href="/settings" className="button ghost">Abrir Configurações</a>}</div>}
             <div ref={endRef} />
           </div>
-          <div className="composer-wrap">{voicePhase !== "idle" && <div className="voice-status" role="status"><span className="voice-pulse" />{voicePhase === "connecting" ? "Conectando microfone…" : voicePhase === "finishing" ? "Finalizando transcrição…" : "Ouvindo você…"}{voicePreview && <span className="voice-preview">{voicePreview}</span>}<button onClick={cancelVoice}>Descartar</button></div>}{voiceDraft && voicePhase === "idle" && <div className="voice-review">Transcrição pronta: revise o texto antes de enviar. A resposta será falada.</div>}<div className="composer"><textarea ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Fale com Gudman…" rows={1} disabled={!sessionId || voicePhase !== "idle"} /><button className={`voice-button ${voicePhase === "listening" ? "recording" : ""}`} aria-label={voicePhase === "listening" ? "Terminar gravação" : "Iniciar gravação de voz"} title={voicePhase === "listening" ? "Terminar gravação" : "Falar com Gudman"} disabled={!sessionId || busy || voicePhase === "connecting" || voicePhase === "finishing"} onClick={() => voicePhase === "listening" ? void finishVoice() : void startVoice()}>{voicePhase === "connecting" || voicePhase === "finishing" ? <LoaderCircle size={17} className="spin-icon" /> : voicePhase === "listening" ? <Square size={14} fill="currentColor" /> : <Mic size={17} />}</button>{busy ? <button className="send-button stop" aria-label="Interromper" onClick={() => abortRef.current?.abort()}><Square size={14} fill="currentColor" /></button> : <button className="send-button" aria-label="Enviar" disabled={!input.trim() || !sessionId || voicePhase !== "idle"} onClick={() => void send()}><CornerDownLeft size={17} /></button>}</div><div className="composer-hint"><span><kbd>Enter</kbd> envia · <kbd>Shift</kbd> + <kbd>Enter</kbd> quebra linha</span>{model && <span>{model}</span>}</div></div>
+          <div className="composer-wrap">
+            {voiceActive && <div className="live-voice-panel" role="status">
+              <div className="live-voice-heading"><span className="voice-pulse" /><strong>{voiceConnecting ? "Conectando a voz…" : voice?.phase === "closing" ? "Encerrando a conversa…" : muted ? "Microfone silenciado" : "Conversa ao vivo"}</strong>
+                <span>{formatVoiceTime(voice?.seconds ?? 0)}</span></div>
+              <p>{muted ? "A sessão continua ativa e consumindo créditos." : "Fale naturalmente. Você pode interromper Gudman."}</p>
+              <div className="live-voice-controls">
+                {!voiceConnecting && voice?.phase !== "closing" && <button onClick={toggleMute} aria-pressed={muted}>{muted ? <Mic size={14} /> : <MicOff size={14} />}{muted ? "Ativar microfone" : "Silenciar microfone"}</button>}
+                {playbackBlocked && <button onClick={() => { void voiceCall.current?.resumeAudio().then(() => setPlaybackBlocked(false)).catch(() => setError("O navegador bloqueou o som. Confira a permissão de áudio.")); }}>Ativar som</button>}
+                <button className="live-end" disabled={voice?.phase === "closing"} onClick={() => void stopVoice()}><PhoneOff size={14} />{voiceConnecting ? "Cancelar conexão" : "Encerrar"}</button>
+              </div>
+              <small>Voz gerada por IA · estimativa US$ {((voice?.seconds ?? 0) / 60 * 0.05).toFixed(2)} somente voz</small>
+            </div>}
+            {!voiceActive && voice?.phase === "closed" && <div className="voice-receipt" role="status">Voz encerrada · {formatVoiceTime(voice.seconds)} · {voice.usageConfirmed ? "duração confirmada" : "consumo final não confirmado"}{voice.reason === "inactivity" ? " · por inatividade" : voice.reason === "duration_limit" ? " · limite de duração" : ""}</div>}
+            <div className="composer">
+              <textarea ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Fale com Gudman…" rows={1} disabled={!sessionId || voiceActive} />
+              <button className="voice-button" aria-label="Iniciar conversa ao vivo" title="Conversar ao vivo (usa créditos de API)" disabled={!sessionId || busy || voiceActive} onClick={() => void startVoice()}><Mic size={17} /></button>
+              {busy ? <button className="send-button stop" aria-label="Interromper" onClick={() => abortRef.current?.abort()}><Square size={14} fill="currentColor" /></button> : <button className="send-button" aria-label="Enviar" disabled={!input.trim() || !sessionId || voiceActive} onClick={() => void send()}><CornerDownLeft size={17} /></button>}
+            </div>
+            <div className="composer-hint"><span>{voiceActive ? "Encerre a voz para enviar texto ou memorizar." : "Enter envia · Voz usa créditos por tempo conectado"}</span>{model && <span>{voiceActive ? "gpt-live-1" : model}</span>}</div>
+          </div>
         </section>
         {commandsOpen && <aside className="command-drawer"><div className="command-header"><div><span className="eyebrow">Atalhos</span><h2>Comandos</h2></div><button className="button icon-only ghost" onClick={() => setCommandsOpen(false)}><X size={17} /></button></div><p>Você pode digitar os comandos ou usar os botões da interface.</p><div className="command-list">{commands.map((item) => <button key={item.command} onClick={() => { if (item.command === "/memorizar") void curate(); else if (item.command === "/limpar") void newSession(); setCommandsOpen(false); }}><code>{item.command}</code><strong>{item.title}</strong><span>{item.description}</span></button>)}</div><div className="command-note"><BrainCircuit size={16} /><span>A curadoria apenas cria propostas. Cada mudança ainda precisa da sua aprovação.</span></div></aside>}
       </div>

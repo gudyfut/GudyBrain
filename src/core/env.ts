@@ -9,9 +9,10 @@ import { PROJECT_ROOT } from "./project-root";
  */
 export function loadEnv(file = ".env"): void {
   const path = resolve(PROJECT_ROOT, file);
-  if (!existsSync(path)) return;
+  // Local credentials are runtime input, never deployment-traced build assets.
+  if (!existsSync(/*turbopackIgnore: true*/ path)) return;
 
-  const text = readFileSync(path, "utf8");
+  const text = readFileSync(/*turbopackIgnore: true*/ path, "utf8");
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;

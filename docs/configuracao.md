@@ -21,7 +21,7 @@ Para criar sua memória, siga [os modelos](../memory-template/index.md).
 | Chat e curadoria do chat | `TYPESAFE_API_KEY` e conta ChatGPT conectada na interface |
 | Modelo Jev | `JEV_MODEL`, padrão `jev-latest` |
 | Resposta e curadoria do chat | `OPENAI_MODEL`, padrão `gpt-6-luna` |
-| Voz no chat | `GEMINI_API_KEY` |
+| Voz ao vivo | `GPT_API_KEY`; opções em [voz](voice-chat.md) |
 | Análise e curadoria de calls | `GLM_API_KEY`; `GLM_BASE_URL` é opcional |
 | Bot Discord | `DISCORDBOT_API_KEY` e instalação [Python](../discordbot/README.md) |
 | Transcrição de calls | `GROQ_API_KEY` e FFmpeg |
@@ -71,7 +71,7 @@ alterá-las. O uso manual continua disponível em [Calls](calls.md).
 | Sessão antiga ou modelo anterior | Inicie Nova conversa |
 | Resposta vazia, fluxo interrompido ou erro da API | Use **Testar comunicação** em Configurações para isolar a conexão |
 | Cota atingida | Confira Gerenciar uso ou o painel do provedor indicado |
-| Microfone indisponível | Confira `GEMINI_API_KEY`, permissão do navegador e o [guia de voz](voice-chat.md) |
+| Microfone indisponível | Confira `GPT_API_KEY`, permissão do navegador e o [guia de voz](voice-chat.md) |
 | Bot não inicia | Execute `python -m gudybot verificar` conforme o [guia do bot](../discordbot/README.md) |
 
 **Testar comunicação** faz duas chamadas reais pequenas: texto e saída

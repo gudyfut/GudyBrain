@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Grip, Maximize2, MessageCircle, Minus, RotateCcw } from "lucide-react";
 
-export function FloatingChat({ children, busy }: { children: ReactNode; busy: boolean }) {
+export function FloatingChat({ children, busy, voiceActive = false }: { children: ReactNode; busy: boolean; voiceActive?: boolean }) {
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -30,12 +30,12 @@ export function FloatingChat({ children, busy }: { children: ReactNode; busy: bo
         event.currentTarget.setPointerCapture(event.pointerId); const el = panel.current!;
         drag.current = { x: event.clientX, y: event.clientY, px: el.offsetLeft, py: el.offsetTop }; setDragging(true);
       }} onPointerMove={(event) => { if (drag.current) setPosition(clamp(drag.current.px + event.clientX - drag.current.x, drag.current.py + event.clientY - drag.current.y)); }} onPointerUp={() => { drag.current = null; setDragging(false); }} onPointerCancel={() => { drag.current = null; setDragging(false); }} onLostPointerCapture={() => { drag.current = null; setDragging(false); }}>
-        <Grip size={15} /><span className={`fc-indicator ${busy ? "busy" : ""}`} /><span><strong>Gudman</strong><small>{busy ? "Processando sua mensagem" : "Canal de conversa"}</small></span>
+        <Grip size={15} /><span className={`fc-indicator ${busy || voiceActive ? "busy" : ""}`} /><span><strong>Gudman</strong><small>{voiceActive ? "Conversa por voz ativa" : busy ? "Processando sua mensagem" : "Canal de conversa"}</small></span>
       </button>
       <button aria-label="Restaurar posição da conversa" title="Restaurar posição" onClick={() => setPosition(null)}><RotateCcw size={14} /></button>
       <button aria-label={collapsed ? "Expandir conversa" : "Recolher conversa"} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <Maximize2 size={15} /> : <Minus size={15} />}</button>
     </header>
     <div className="floating-content" inert={collapsed}>{children}</div>
-    {collapsed && <button className="fc-reopen" onClick={() => setCollapsed(false)}><MessageCircle size={15} /> Abrir conversa {busy && <span>· em andamento</span>}</button>}
+    {collapsed && <button className="fc-reopen" onClick={() => setCollapsed(false)}><MessageCircle size={15} /> Abrir conversa {voiceActive ? <span>· voz ativa</span> : busy && <span>· em andamento</span>}</button>}
   </div>;
 }

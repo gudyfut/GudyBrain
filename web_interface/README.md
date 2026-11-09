@@ -11,7 +11,7 @@ Importa o núcleo em `src/`; o bot Python continua em `discordbot/`.
 | `src/components/` | Chat, atlas, revisão e voz |
 | `src/server/` | Sessões, filas, acesso validado a arquivos e processos |
 | `src/dev/` | Verificações da interface |
-| `public/` | Recursos estáticos, incluindo o AudioWorklet |
+| `public/` | Recursos estáticos |
 
 ## Executar
 
@@ -29,7 +29,8 @@ Para verificar somente este workspace:
 
 O servidor escuta somente em localhost. Segredos e acervos são acessados no
 backend; o navegador recebe metadados/documentos apenas pelos fluxos autorizados.
-A transcrição Gemini usa um token temporário próprio, não a chave principal.
+A voz GPT-Live usa WebRTC no navegador e controle por WebSocket no servidor.
+O processo Node deve permanecer ativo durante a chamada; a chave não sai do backend.
 
 Veja [configuração](../docs/configuracao.md), [uso e arquitetura web](../docs/interface-web.md)
 e [desenvolvimento](../docs/desenvolvimento.md).

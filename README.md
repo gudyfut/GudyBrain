@@ -19,14 +19,15 @@ Preencha `TYPESAFE_API_KEY` no `.env`, execute `npm start` e abra
 é `gpt-6-luna`.
 
 Jev seleciona memória; a Responses API gera texto com o plano ChatGPT autorizado.
-Não exige instalar Codex nem fornecer chave OpenAI. Voz e calls são opcionais
-e têm credenciais próprias. Veja [configuração](docs/configuracao.md).
+O chat de texto não exige instalar Codex nem fornecer chave OpenAI. Para a
+conversa ao vivo, preencha `GPT_API_KEY`; voz e calls têm credenciais próprias. Veja [configuração](docs/configuracao.md).
 
 ## O que você pode fazer
 
 - **Conversar:** chat flutuante sobre um atlas interativo. Explore os nós,
   acompanhe a busca e reveja o percurso de cada resposta.
-- **Falar e ouvir:** transcreva pelo microfone, revise o texto e escute a resposta.
+- **Falar e ouvir:** converse continuamente com GPT-Live, com interrupções e
+  consultas de memória pelo mesmo agente.
 - **Memorizar:** gere propostas a partir do chat e revise antes de aprovar.
 - **Consultar e editar:** abra documentos na biblioteca; edições manuais também
   passam por validação.
@@ -58,8 +59,10 @@ O servidor é de uso local e individual; veja [segurança e privacidade](SECURIT
 | Branch | Papel |
 | --- | --- |
 | `public` | Versão publicada, padrão do GitHub |
-| `codex/development` | Desenvolvimento mais atualizado |
-| `codex/testing` | Testes; criada inicialmente como cópia de desenvolvimento |
+| `codex/voice-gemini` | Base preservada com transcrição e síntese Gemini |
+| `codex/gpt-live` | Desenvolvimento da conversa contínua com GPT-Live |
+| `codex/development` | Base anterior à separação dos provedores de voz |
+| `codex/testing` | Branch histórica de testes, anterior à separação |
 
 ## Documentação
 

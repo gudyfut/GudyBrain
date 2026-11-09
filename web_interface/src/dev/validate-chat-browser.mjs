@@ -16,15 +16,6 @@ try {
     const original = window.fetch.bind(window);
     window.fetch = async (url, options) => {
       if (url === "/api/chat/session") return Response.json({ id: crypto.randomUUID(), model: "modelo simulado" });
-      if (url === "/api/chat/voice/speech") {
-        const body = JSON.parse(options.body);
-        if (body.text !== "Resposta simulada com contexto selecionado.") throw new Error("TTS recebeu texto divergente da resposta.");
-        window.__voiceStreamDone = false;
-        return new Response(new ReadableStream({ start(controller) {
-          controller.enqueue(new Uint8Array(48_000)); // Primeiro segundo de PCM mono 24 kHz.
-          setTimeout(() => { controller.enqueue(new Uint8Array(48_000)); controller.close(); window.__voiceStreamDone = true; }, 500);
-        } }), { headers: { "Content-Type": "audio/L16;rate=24000;channels=1" } });
-      }
       if (url === "/api/memory/atlas") return Response.json({ chars: 2000, nodes: [
         {path:"social", title:"Pessoas e relações", kind:"folder"}, {path:"projetos", title:"Projetos", kind:"folder"},
         ...Array.from({length:24},(_,i)=>({path:`${i < 16 ? "social" : "projetos"}/registro-${i}.md`, title:["Ana · pesquisa", "Bruno · design", "Clara · música"][i] ?? `Conexão ${i + 1}`, kind:"file", description:"Uma memória fictícia para validação visual."}))
@@ -82,12 +73,7 @@ try {
   await page.screenshot({ path: join(output, "desktop-search.png") });
   await page.getByText("Resposta simulada com contexto selecionado.", { exact: true }).waitFor();
   await page.waitForFunction(() => !document.querySelector('[aria-label="Interromper"]'));
-  assert.equal(await page.getByRole("button", { name: "Iniciar gravação de voz" }).isEnabled(), true, "microfone disponível no chat pronto");
-  await page.getByRole("button", { name: "Ouvir", exact: true }).click();
-  await page.getByRole("button", { name: "Parar áudio", exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => window.__voiceStreamDone), false, "reprodução deve começar antes de receber todo o TTS");
-  await page.getByRole("button", { name: "Parar áudio", exact: true }).click();
-  await page.getByRole("button", { name: "Ouvir", exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Iniciar conversa ao vivo" }).isEnabled(), true, "microfone disponível no chat pronto");
   await page.getByRole("button", { name: "Ana · pesquisa, selecionado" }).click();
   assert.ok((await page.locator(".atlas-inspector").innerText()).includes("social/ana.md"));
   assert.ok((await page.locator(".atlas-decision").innerText()).includes("94%"));

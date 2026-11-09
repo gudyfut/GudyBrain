@@ -14,10 +14,10 @@ entregues nem compromissos de prazo. O estado atual está na
 
 ## Voz e desempenho
 
-- Medir separadamente conexão, transcrição, busca, inspeção, resposta e síntese.
+- Medir conexão, tempo até a fala útil, busca, inspeção e custo da sessão Live.
 - Reduzir chamadas sequenciais sem perder acesso integral aos documentos.
-- Avaliar conversa de áudio contínua e interrupções sem contornar a memória
-  ou a revisão humana existentes.
+- Avaliar qualidade em português e interrupções audíveis da integração GPT-Live
+  em chamadas reais, mantendo a memória e a revisão humana existentes.
 
 ## Calls
 

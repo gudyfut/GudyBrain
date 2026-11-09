@@ -11,7 +11,8 @@ export function findProjectRoot(start = process.cwd()): string {
     throw new Error(`GUDYBRAIN_ROOT não aponta para a raiz do GudyBrain: ${root}`);
   }
 
-  let current = resolve(start);
+  // Discover the installed local checkout at runtime; do not bundle its data.
+  let current = resolve(/*turbopackIgnore: true*/ start);
   while (true) {
     if (isProjectRoot(current)) return current;
     const parent = dirname(current);

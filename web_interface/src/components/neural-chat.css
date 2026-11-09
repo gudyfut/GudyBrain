@@ -65,6 +65,19 @@
 .atlas-link,.atlas-core,.atlas-ring,.atlas-compass { pointer-events:none; }
 
 .neural-chat .composer textarea { min-width:0; }
+.live-voice-panel { margin-bottom:10px; padding:12px; border:1px solid #4a7d8199; border-radius:12px; background:#122e36; color:#d6f4e9; font:12px ui-sans-serif,system-ui,sans-serif; }
+.live-voice-heading { display:flex; align-items:center; gap:8px; }
+.live-voice-heading > span:last-child { margin-left:auto; font-variant-numeric:tabular-nums; }
+.live-voice-panel p { margin:8px 0; color:#a6c9c7; font-size:11px; }
+.live-voice-controls { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.live-voice-controls button { display:flex; align-items:center; gap:6px; padding:8px 10px; border:1px solid #577879; border-radius:8px; background:#21424a; color:#e5f6ef; font:inherit; }
+.live-voice-controls .live-end { background:#633d3b; border-color:#b97f6e; margin-left:auto; }
+.live-voice-controls button:disabled { opacity:.55; cursor:wait; }
+.live-voice-panel small,.voice-receipt { color:#a8c6bd; font:10px ui-sans-serif,system-ui,sans-serif; }
+.voice-receipt { margin:0 0 8px; line-height:1.5; }
+.live-voice-controls button:focus-visible { outline:2px solid #b5f2da; outline-offset:3px; }
+.live-voice-active .composer { display:none; }
+@media(max-width:760px) { .live-voice-active .floating-chat:not(.collapsed) { height:min(540px,calc(100% - 100px)); } }
 .neural-chat .voice-button { display:grid; place-items:center; flex:0 0 31px; width:31px; height:31px; border:1px solid #4a7d8199; border-radius:8px; background:#193843; color:#a3ead8; transition:background .2s,border-color .2s,box-shadow .2s,transform .2s; }
 .neural-chat .voice-button:hover { background:#285651; border-color:#95e7d0; transform:translateY(-1px); }
 .neural-chat .voice-button.recording { background:#78413e; color:#ffe1ce; border-color:#eb9b78; box-shadow:0 0 0 4px #ed8b6c25,0 0 18px #e5785966; animation:voice-glow 1.6s ease-in-out infinite; }

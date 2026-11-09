@@ -31,6 +31,7 @@ usando `.next`. Use um checkout separado ou encerre o servidor antes.
 | Seleção de fatos do chat | `npm run check:selection` |
 | Inspeção e leitura integral de contexto | `npm run check:context` |
 | OAuth e Responses API com respostas simuladas | `npm run check:responses` |
+| GPT-Live com provedor simulado | `npm run check:voice` |
 | Eventos de busca e estado visual | `npm run check:retrieval-view --workspace @gudybrain/web-interface` |
 
 Essas verificações integram `npm test`. Os testes Python são independentes:
@@ -44,7 +45,12 @@ Para o teste visual, inicie a web na porta 3100, por exemplo com
 `npm run dev --workspace @gudybrain/web-interface -- --port 3100`, e execute
 `npm run check:chat-ui`. Requer Playwright instalado; `PLAYWRIGHT_MODULE` aceita
 a URL `file://` do módulo e `CHAT_TEST_URL` altera o endereço. O teste simula as
-respostas do chat no navegador e não chama modelos.
+respostas do chat no navegador e não chama modelos. Para a voz, execute
+`npm run check:voice-ui --workspace @gudybrain/web-interface` com o mesmo
+servidor. Instale o navegador com
+`npm exec --workspace @gudybrain/web-interface -- playwright install chromium`.
+O teste de voz usa captura e WebRTC simulados. Avaliações auditivas reais ficam
+fora da suíte, conforme o [guia de voz](voice-chat.md).
 
 ## Diagnósticos com chamadas reais
 
@@ -55,8 +61,6 @@ Execute somente quando quiser testar a integração ou medir desempenho:
 | `npm run smoke:api` | GLM |
 | `npm run smoke:responses` | ChatGPT via Responses API |
 | `npm run benchmark:chat` | Jev e GPT, com memória fictícia |
-| `npm run smoke:voice --workspace @gudybrain/web-interface` | Gemini: transcrição e síntese |
-| `npm run benchmark:voice --workspace @gudybrain/web-interface` | Gemini: tempos de conexão, transcrição e áudio |
 
 Esses comandos usam credenciais e cotas reais e não integram `npm test`.
 

@@ -1,57 +1,99 @@
-# Conversa por voz
+# Conversa ao vivo com GPT-Live
 
-Voz é um modo de entrada/saída do chat existente. Jev continua selecionando
-memória e GPT pela Responses API continua produzindo a resposta.
+A branch `codex/gpt-live` usa GPT-Live para ouvir e falar continuamente. Jev
+seleciona memória e Gudman consulta os documentos pelo fluxo existente. A voz
+anterior, com transcrição e síntese Gemini, está em `codex/voice-gemini`.
+
+## Configurar
+
+No `.env` da raiz, configure `GPT_API_KEY` com uma chave de projeto da OpenAI
+que tenha acesso a `gpt-live-1`. Reinicie o servidor depois de editar o arquivo.
+A chave permanece no servidor. Não use prefixo `NEXT_PUBLIC_`.
+
+O backend de memória exige `CHAT_MODE=jev`, `TYPESAFE_API_KEY` e uma conta
+ChatGPT conectada em **Configurações**. A API key da voz não substitui esse
+login. O modo GLM legado continua disponível para texto; não atende a voz Live.
+
+| Opção | Padrão | Limite |
+| --- | --- | --- |
+| `GPT_LIVE_VOICE` | `tempo`, voz brasileira masculina | Nome de voz suportada; `bossa` é uma opção brasileira feminina |
+| `GPT_LIVE_IDLE_SECONDS` | `90` | Inteiro entre 15 e 300 segundos |
+| `GPT_LIVE_MAX_SECONDS` | `1800` | Inteiro entre 60 e 7200 segundos |
+
+Abra **http://127.0.0.1:3000/chat** com `npm start`. Microfone e WebRTC exigem
+um navegador compatível em contexto seguro, como localhost. Execute o servidor
+Node continuamente; o controle da voz não é adequado a funções serverless.
 
 ## Usar
 
-Configure `GEMINI_API_KEY` no `.env` da raiz, reinicie a interface e conceda
-permissão de microfone no navegador.
+1. Clique no microfone **Iniciar conversa ao vivo** e autorize a captura.
+2. Aguarde **Conversa ao vivo**. Fale naturalmente e interrompa a fala quando
+   precisar corrigir o pedido.
+3. Use **Silenciar microfone** para suspender a entrada. Isso não encerra a
+   sessão nem interrompe sua cobrança. Se o navegador bloquear áudio, clique em
+   **Ativar som**.
+4. Clique em **Encerrar** para fechar a sessão e liberar o microfone. O app
+   informa se recebeu a duração final do provedor.
+5. Continue por texto ou clique em **Memorizar** para preparar propostas. Cada
+   proposta ainda precisa da sua aprovação na tela de revisão.
 
-1. Clique no microfone para começar.
-2. Clique novamente para terminar a transcrição.
-3. Revise o texto reconhecido e envie.
-4. Aguarde a busca/resposta; uma mensagem originada do microfone é lida em voz alta.
+Durante a chamada, envio de texto e curadoria da mesma sessão ficam bloqueados.
+**Nova conversa**, navegação para outra página e fechamento da aba também
+encerram a captura. Só é permitida uma sessão Live por servidor local.
+Não há retomada automática após uma queda: inicie outra chamada explicitamente.
 
-**Ouvir** reproduz uma resposta concluída; **Parar áudio** interrompe a
-reprodução. **Descartar** cancela a captura. Captura de áudio exige um contexto
-seguro no navegador, como localhost; a conexão ChatGPT deste aplicativo exige
-abrir a interface em `http://127.0.0.1`.
+## Memória, transcrições e interrupções
 
-## Fluxo e modelos implementados
+O navegador envia áudio diretamente à OpenAI por WebRTC. O servidor recebe
+os eventos e áudio refletido pelo canal de controle; examina apenas a energia
+do áudio para detectar atividade, sem salvá-lo. `store: false` não solicita
+gravações recuperáveis pelo app; não substitui a política de retenção da API.
 
-| Etapa | Implementação atual |
-| --- | --- |
-| Transcrição | Gemini Live, `gemini-3.5-transcribe-live` |
-| Busca e resposta | Mesmo fluxo do [chat escrito](jev-memory.md) |
-| Síntese | Gemini, `gemini-3.8-flash-lite-tts`, voz Charon |
+Pedidos que dependem de memória são delegados ao agente local. O resultado é
+entregue em trechos ao GPT-Live, que o comunica com suas próprias palavras.
+Uma correção enquanto a consulta está pendente cancela a execução anterior e
+impede a entrega de seu resultado atrasado. A voz não tem ferramentas para
+escrever arquivos, aprovar propostas ou executar comandos.
 
-O servidor emite um token temporário limitado à transcrição. A chave principal
-não é enviada ao navegador. Áudio capturado segue diretamente para Gemini por
-uma conexão Live; o Gudman não o salva em arquivos de gravação.
+As transcrições e o histórico ficam em RAM e são perdidos ao reiniciar o
+servidor. Deltas de texto não indicam turnos completos nem garantem o que foi
+ouvido até uma interrupção; as legendas podem conter erros. A curadoria usa as
+transcrições recebidas, nunca um rascunho completo do backend como se tivesse
+sido falado. Revise as propostas antes de aprovar.
 
-A síntese roda no servidor e transmite PCM 24 kHz. A reprodução começa com os
-primeiros trechos, sem aguardar o áudio inteiro. O servidor aceita somente
-texto de uma resposta já registrada na conversa; remove a marcação Markdown
-mais comum apenas para a fala.
+O contexto inicial enviado ao Live é um trecho recente do chat, com mensagens
+inteiras. O agente de memória mantém acesso ao contexto local completo dentro
+dos limites existentes. Ao atingir o limite de transcrição, a voz é encerrada;
+inicie uma nova conversa se o histórico do chat atingir seu limite.
 
-## Limites e dados enviados
+## Créditos e consumo
 
-O fluxo é **por turnos**, com revisão da transcrição. Não é uma chamada de áudio
-simultânea com interrupção da geração pelo usuário. A síntese só começa após
-a resposta ser concluída; tempo de busca e inspeção também afeta a espera.
+Na documentação consultada em 2026-11-09, GPT-Live custa **US$ 0,05/minuto**,
+cobrado por segundo. O tempo inclui silêncio e espera por consultas. A criação
+WebRTC cobra 15 segundos de inicialização, compensados na duração da sessão.
+Os valores da interface são estimativas apenas de voz, não saldo de conta nem
+orçamento garantido. [Preços](https://developers.openai.com/api/docs/models/gpt-live-1)
+e [regras de cobrança](https://developers.openai.com/api/docs/guides/voice-latency-cost).
 
-O TTS recebe a resposta, que pode conter fatos derivados da memória, mas não
-recebe os arquivos completos. Confira políticas de dados, disponibilidade dos
-modelos e cotas no projeto Google AI Studio. Não há garantia de uso gratuito
-ilimitado. Falhas de voz não alteram a memória profunda.
+Créditos do benefício Pro podem cobrir GPT-Live quando vinculados à mesma
+organização da chave. Eles expiram ao fim do ciclo. O backend Jev e a conexão
+ChatGPT mantêm seus próprios limites; não entram na estimativa de voz exibida.
+Confira o saldo e o acesso ao modelo na plataforma OpenAI.
+[Condições do benefício](https://developers.openai.com/api/docs/guides/chatgpt-api-credits).
 
-## Diagnosticar
+A duração confirmada vem de `session.closed`. Em queda de conexão, o app
+preserva o último valor observado e informa que o consumo final não foi
+confirmado. O limite de duração e o encerramento por inatividade reduzem sessões
+esquecidas; não substituem limites de gastos na conta da API.
 
-Os comandos de smoke/benchmark estão no [guia de desenvolvimento](desenvolvimento.md)
-e fazem chamadas reais. `benchmark:chat` mede busca e geração; `benchmark:voice`
-mede conexão, transcrição e início/fim do áudio.
+## Verificar
 
-O benchmark de resposta direta com Gemini 3.8 Live é exploratório; se não
-produzir uma resposta, um timeout não representa uma medição válida de latência.
-Ele não substitui o fluxo de memória implementado.
+- `npm run check:voice`: testes de protocolo e ciclo de vida com provedor simulado.
+- `npm run check:voice-ui --workspace @gudybrain/web-interface`: testes de
+  navegador com microfone/WebRTC simulados; requer web na porta 3100 e Chromium
+  instalado via `npm exec --workspace @gudybrain/web-interface -- playwright install chromium`.
+- A validação auditiva é manual: iniciar, perguntar sobre memória, corrigir
+  durante uma consulta, interromper a fala e encerrar. Essa etapa usa créditos
+  reais e não integra a suíte local.
+
+Consulte a [decisão arquitetural](adr/0004-voz-live-com-delegacao-local.md).

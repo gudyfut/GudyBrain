@@ -12,6 +12,7 @@ interface ChatSession {
   readonly id: string;
   readonly agent: ConversationAgent;
   busy: boolean;
+  voiceOwner?: string;
   updatedAt: number;
 }
 
@@ -48,11 +49,13 @@ export function getChatSession(id: string): ChatSession {
 }
 
 export function deleteChatSession(id: string): void {
+  if (runtime.sessions.get(id)?.voiceOwner) throw new Error("Encerre a conversa por voz antes de excluir a sessão.");
   runtime.sessions.delete(id);
 }
 
 export function chatHistory(id: string): readonly Message[] {
   const session = getChatSession(id);
+  if (session.voiceOwner) throw new Error("Encerre a conversa por voz antes de memorizar.");
   if (session.busy) throw new Error("Aguarde a resposta terminar antes de memorizar.");
   return session.agent.history.map((message) => ({ ...message }));
 }
@@ -68,6 +71,7 @@ export async function runChat(
   },
 ): Promise<string> {
   const session = getChatSession(id);
+  if (session.voiceOwner) throw new Error("Encerre a conversa por voz antes de enviar texto.");
   if (session.busy) throw new Error("Gudman ainda está respondendo nesta conversa.");
   session.busy = true;
   try {
@@ -83,6 +87,23 @@ export async function runChat(
 function pruneSessions(): void {
   const cutoff = Date.now() - 12 * 60 * 60 * 1000;
   for (const [id, session] of runtime.sessions) {
-    if (!session.busy && session.updatedAt < cutoff) runtime.sessions.delete(id);
+    if (!session.busy && !session.voiceOwner && session.updatedAt < cutoff) runtime.sessions.delete(id);
   }
+}
+
+export function claimVoiceSession(id: string, owner: string): readonly Message[] {
+  const session = getChatSession(id);
+  if (session.busy || session.voiceOwner) throw new Error("Aguarde o fim da conversa em andamento.");
+  session.voiceOwner = owner;
+  return session.agent.history.map((message) => ({ ...message }));
+}
+
+export function finishVoiceSession(id: string, owner: string, messages: readonly Message[]): void {
+  const session = runtime.sessions.get(id);
+  if (!session || session.voiceOwner !== owner) return;
+  // Only trusted sideband captions enter history. Delegated drafts are kept out.
+  session.agent.history.push(...messages.filter((message) => message.content.trim())
+    .map(({ role, content }) => ({ role, content })));
+  session.voiceOwner = undefined;
+  session.updatedAt = Date.now();
 }

@@ -10,7 +10,7 @@ modelos, parâmetros e comandos.
 | --- | --- |
 | [Configuração](configuracao.md) | Dependências, credenciais, login e erros comuns |
 | [Interface web](interface-web.md) | Chat, atlas, biblioteca e revisão |
-| [Voz](voice-chat.md) | Microfone, síntese e fluxo por turnos |
+| [Voz](voice-chat.md) | GPT-Live, conversação contínua e consumo |
 | [Calls](calls.md) | Transcrição, análise, artefatos e curadoria |
 | [Bot Discord](../discordbot/README.md) | Instalação Python e comandos de gravação |
 

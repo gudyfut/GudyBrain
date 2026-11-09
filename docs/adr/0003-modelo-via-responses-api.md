@@ -45,6 +45,11 @@ Falhas não trocam silenciosamente de conta, modelo ou forma de cobrança.
   [documentação de uso](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
 - As restrições deste fluxo não permitem substituir a camada de voz Gemini.
 
+Nota de evolução (2026-11-09): a restrição de voz acima descreve o escopo desta
+migração de texto. O [ADR 0004](0004-voz-live-com-delegacao-local.md) estabelece
+a camada GPT-Live com API key separada; a decisão de autenticação e geração
+Responses deste ADR continua em vigor para o backend.
+
 Referências: [registro e login](https://developers.openai.com/siwc/token-sharing-open-source/sign-in),
 [inferência](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference),
 [limitações](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).

@@ -71,8 +71,8 @@ O bot iniciado pela web recebe um token de controle em memória e usa uma API
 local na porta 8765. Call jobs usam filas; áudio permite HTTP Range e os
 artefatos completos são carregados sob demanda.
 
-Chaves e credenciais OAuth ficam no servidor. A transcrição ao vivo usa um
-token temporário Gemini no navegador. Paths de memória, sessões e áudio são
+Chaves e credenciais OAuth ficam no servidor. A voz usa WebRTC com GPT-Live;
+o servidor cria a sessão e controla as consultas pelo canal de controle. Paths de memória, sessões e áudio são
 validados antes do acesso. Dados locais não devem ser importados diretamente
 por componentes cliente.
 
