@@ -71,7 +71,7 @@ export class MemoryConversation {
       });
       this.lastRetrieval = retrieval;
       const recentUser = this.history.filter((item) => item.role === "user").slice(-2).map((item) => item.content).join(" ");
-      const preferred = mentionedMemories(`${recentUser} ${input}`, index);
+      let preferred = mentionedMemories(`${recentUser} ${input}`, index);
       const requested = new Set<string>();
       let scopes: string[] = [];
       let lookupQuery = `${input} ${recentUser}`.trim();
@@ -82,17 +82,21 @@ export class MemoryConversation {
         // every indexed document was read or explicitly omitted after a request.
         if (!index.nodes.some((node) => node.kind === "file" && !excluded.has(node.path))) break;
         emit({ type: "retrieval", message: "Conferindo se faltam documentos integrais para responder" });
-        const found = locateMemory(index, lookupQuery, {
+        const locate = () => locateMemory(index, lookupQuery, {
           scopes, preferred: [...preferred, ...(retrieval.omitted ?? []).map((item) => item.path)],
           exclude: excluded,
         });
+        let found = locate();
+        // Exhausting a requested branch is not the same as exhausting memory.
+        // Return to the global candidate window without spending another round.
+        if (scopes.length && !found.files.length) { scopes = []; found = locate(); }
         const allowedFiles = new Set(found.files.map((node) => node.path));
         const allowedFolders = new Set(found.folders.map((node) => node.path));
         if (!found.files.length && !found.folders.length) break;
         const raw = await this.inspect({ model: this.model, instructions: this.inspectionInstructions,
           outputSchema: MEMORY_INSPECTION_SCHEMA,
           input: JSON.stringify({ stage: "inspect", task: "Escolha documentos candidatos ou peça outra pasta/consulta local. Não responda à pergunta nesta etapa.",
-            candidateFiles: found.files, candidateFolders: found.folders, message: input, history: this.history, memory: retrieval, round }), signal: runOptions.signal });
+            candidateFiles: found.files, candidateFolders: found.folders, scopes, message: input, history: this.history, memory: retrieval, round }), signal: runOptions.signal });
         runOptions.signal?.throwIfAborted();
         let plan: unknown;
         try { plan = JSON.parse(raw); }
@@ -134,10 +138,24 @@ export class MemoryConversation {
             emit({ type: "retrieval_trace", event: { phase: "folder", path } });
           }
         } else if (nextQuery && nextQuery !== lookupQuery) scopes = [];
-        if (nextQuery) lookupQuery = nextQuery;
+        if (nextQuery && nextQuery !== lookupQuery) {
+          lookupQuery = nextQuery;
+          preferred = mentionedMemories(nextQuery, index);
+        }
+        if (round === 4 && index.nodes.some((node) => node.kind === "file" && !requested.has(node.path) && !retrieval.files.some((file) => file.path === node.path))) {
+          retrieval.limited = true;
+          (retrieval.limitations ??= []).push("Limite de quatro rodadas de inspeção atingido; ainda existem documentos não conferidos. A consulta não é um inventário completo.");
+        }
         emit({ type: "retrieval_trace", event: { phase: "complete", files: retrieval.files.length, limited: retrieval.limited } });
       }
       runOptions.signal?.throwIfAborted();
+      // A later full read can resolve an earlier budget omission. The complete
+      // local index is the only proof that no documents remain unexamined.
+      if (retrieval.limited && index.nodes.every((node) => node.kind !== "file" || retrieval.files.some((file) => file.path === node.path))) {
+        retrieval.limited = false;
+        retrieval.limitations = undefined;
+        emit({ type: "retrieval_trace", event: { phase: "complete", files: retrieval.files.length, limited: false } });
+      }
       emit({ type: "retrieval", message: "Gudman está preparando a resposta" });
       emit({ type: "retrieval_trace", event: { phase: "answer" } });
       const content = await this.answer({

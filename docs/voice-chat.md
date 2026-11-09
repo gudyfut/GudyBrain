@@ -66,7 +66,11 @@ entregue em trechos ao GPT-Live, que o comunica com suas próprias palavras.
 A consulta começa enquanto o serviço confirma o aviso de espera. A entrega do
 resultado exige tanto a conclusão da busca quanto a confirmação desse aviso.
 Uma correção enquanto a consulta está pendente cancela a execução anterior e
-impede a entrega de seu resultado atrasado. A voz não tem ferramentas para
+impede a entrega de seu resultado atrasado. A nova consulta respeita a pausa
+de estabilização da fala, sem aguardar o provedor terminar a execução cancelada.
+Fragmentos são ordenados pelo horário da fala. Respostas substantivas separam
+perguntas próximas; confirmações breves como “certo” não dividem uma pergunta.
+A voz não tem ferramentas para
 escrever arquivos, aprovar propostas ou executar comandos.
 
 As transcrições e o histórico ficam em RAM e são perdidos ao reiniciar o

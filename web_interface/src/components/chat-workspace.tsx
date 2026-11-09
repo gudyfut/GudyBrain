@@ -56,6 +56,7 @@ export function ChatWorkspace() {
   const voiceAbort = useRef<AbortController | null>(null);
   const voiceEpoch = useRef(0);
   const voiceTraceRef = useRef<RetrievalTrace | undefined>(undefined);
+  const voiceErrorRef = useRef<string | undefined>(undefined);
 
   useEffect(() => { void newSession(); return () => {
     generation.current++; voiceEpoch.current++; abortRef.current?.abort();
@@ -96,6 +97,7 @@ export function ChatWorkspace() {
     const abort = new AbortController();
     voiceAbort.current = abort;
     voiceLevels.current = { input: 0, output: 0 };
+    voiceErrorRef.current = undefined;
     setView("voice");
     setVoiceConnecting(true); setVoice(null); setError(null); setMuted(false); setPlaybackBlocked(false);
     voiceTraceRef.current = undefined; setVoiceTrace(undefined);
@@ -108,6 +110,11 @@ export function ChatWorkspace() {
           setVoice(state);
           setActivity(state.activity);
           if (state.error) setError(state.error);
+          else if (voiceErrorRef.current) {
+            const previous = voiceErrorRef.current;
+            setError((current) => current === previous ? null : current);
+          }
+          voiceErrorRef.current = state.error;
           const lastAssistant = state.messages.findLast((message) => message.role === "assistant");
           setMessages((current) => [...current.filter((message) => message.voiceId !== state.id),
             ...state.messages.map((message) => ({ ...message, voiceId: state.id,

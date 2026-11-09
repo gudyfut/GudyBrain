@@ -66,6 +66,12 @@ assert.equal(liveMessages(fragments)[0]!.content, "Eu eu ", "não deduplica pala
 assert.equal(delegationContext([], fragments, 200)?.input, "Eu eu prefiro azul.", "backchannels não quebram a pergunta");
 assert.equal(delegationContext([], fragments, 100)?.input, "Eu eu", "pedido limitado ao offset disponível");
 assert.equal(delegationContext([], [], 0), undefined);
+assert.equal(delegationContext([], [fragments[3]!, ...fragments.slice(0, 3)], 200)?.input, "Eu eu prefiro azul.", "a pergunta segue o tempo da fala, não a ordem de chegada");
+const followup = [fragment("user", "Qual é o prazo?", 0, 100), fragment("assistant", "Quinta-feira.", 150, 300), fragment("user", "E o responsável?", 350, 450)];
+assert.equal(delegationContext([], followup, 450)?.input, "E o responsável?", "resposta substantiva separa perguntas próximas");
+assert.deepEqual(delegationContext([], followup, 450)?.history.map((message) => message.content), ["Qual é o prazo?", "Quinta-feira."]);
+const longUtterance = Array.from({ length: 2000 }, (_, i) => fragment("user", "palavra ", i * 10, i * 10 + 9));
+assert.equal(delegationContext([], longUtterance, 20_000)?.input, "palavra ".repeat(2000).trim(), "fala longa preservada sem reexaminar todo o histórico a cada fragmento");
 const long = "Uma explicação com acentos e 🎧. ".repeat(150) + "a".repeat(600);
 assert.equal(voiceChunks(long).join(""), long);
 assert.ok(voiceChunks(long).every((chunk) => Buffer.byteLength(chunk) <= 450));
@@ -76,12 +82,15 @@ assert.ok(voiceChunks(long).every((chunk) => Buffer.byteLength(chunk) <= 450));
   const first = transcript(h.controller, "user", "Quem é a pessoa fictícia?");
   h.controller.receive(first);
   assert.equal(h.controller.snapshot().messages.length, 1, "eventos duplicados não duplicam histórico");
+  const cachedMessages = h.controller.snapshot().messages;
+  assert.equal(h.controller.snapshot().messages, cachedMessages, "estado de uso/atividade reutiliza a transcrição já montada");
   delegate(h.controller);
   delegate(h.controller); // Same delegation ID, distinct event ID.
   await until(() => h.sent.some((event) => event.type === "session.commentary.append"));
   assert.equal(h.sent.filter((event) => event.type === "session.thinking.append").length, 1);
   assert.ok(h.sent.filter((event) => String(event.type).endsWith("append")).every((event) => event.delegation_id === "delegation-1"));
   transcript(h.controller, "assistant", "Resposta realmente transcrita.", 500, 900);
+  assert.notEqual(h.controller.snapshot().messages, cachedMessages, "nova fala invalida o cache da transcrição");
   h.controller.receive({ type: "session.usage.updated", usage: { seconds: 12 } });
   h.controller.receive({ type: "session.usage.updated", usage: { seconds: 15 } });
   assert.equal(h.controller.snapshot().seconds, 15, "uso cumulativo substitui, não soma");
@@ -150,8 +159,9 @@ assert.ok(voiceChunks(long).every((chunk) => Buffer.byteLength(chunk) <= 450));
   await until(() => calls.length === 1);
   transcript(h.controller, "user", " Na verdade, de quinta.", 220, 400);
   assert.equal(calls[0]!.signal.aborted, true);
-  calls[0]!.resolve("RESULTADO ANTIGO"); // Simulate a provider that ignores cancellation.
   await until(() => calls.length === 2);
+  // The corrected request must start without waiting for a canceled provider.
+  calls[0]!.resolve("RESULTADO ANTIGO");
   assert.ok(calls[1]!.input.includes("quinta"));
   calls[1]!.resolve("Resultado corrigido");
   await until(() => h.sent.some((event) => event.content === "Resultado corrigido"));
@@ -220,6 +230,20 @@ assert.ok(voiceChunks(long).every((chunk) => Buffer.byteLength(chunk) <= 450));
   h.controller.ready(); now = 101; h.controller.tick();
   await until(() => h.controller.snapshot().phase === "closed");
   assert.equal(h.controller.snapshot().reason, "duration_limit");
+}
+
+{
+  let attempts = 0;
+  const h = harness({ query: async () => {
+    if (++attempts === 1) throw new DecisionsError("Falha temporária sintética", "http", 429);
+    return "Nova consulta concluída";
+  } });
+  transcript(h.controller, "user", "Primeira consulta"); delegate(h.controller);
+  await until(() => !!h.controller.snapshot().error && !h.controller.snapshot().activity);
+  transcript(h.controller, "user", "Uma nova consulta", 4000, 4200); delegate(h.controller, "query-recovered", 4200);
+  await until(() => h.sent.some((event) => event.content === "Nova consulta concluída"));
+  assert.equal(h.controller.snapshot().error, undefined, "uma nova consulta não mantém o erro da anterior");
+  await h.controller.close();
 }
 
 {

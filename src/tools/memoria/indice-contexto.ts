@@ -46,8 +46,8 @@ const identityEntries = (nodes: readonly MemoryNode[]): Map<string, string[]> =>
   }
   return identities;
 };
-const words = (value: string) => normalize(value).match(/[\p{L}\p{N}]{3,}/gu)?.filter((word) =>
-  !new Set(["que", "com", "para", "uma", "como", "sobre", "este", "essa", "isso", "voce", "meu", "minha", "seus", "suas", "qual", "quais", "onde", "quando", "pode", "sabe", "fale"]).has(word)) ?? [];
+const stopWords = new Set(["que", "com", "para", "uma", "como", "sobre", "este", "essa", "isso", "voce", "meu", "minha", "seus", "suas", "qual", "quais", "onde", "quando", "pode", "sabe", "fale"]);
+const words = (value: string) => normalize(value).match(/[\p{L}\p{N}]{3,}/gu)?.filter((word) => !stopWords.has(word)) ?? [];
 const parentOf = (path: string) => path.split("/").slice(0, -1).join("/");
 
 /** Short deterministic candidate list; broadening is explicit via folder or query. */
@@ -66,8 +66,9 @@ export function locateMemory(index: MemoryIndex, query: string, options: {
     return (preferred.has(node.path) ? 1000 : 0) + (direct.has(node.path) ? 500 : 0)
       + tokens.reduce((sum, token) => sum + (title.includes(token) ? 12 : 0) + (context.includes(token) ? 3 : 0), 0);
   };
-  const rank = (a: MemoryNode, b: MemoryNode) => score(b) - score(a) || a.path.localeCompare(b.path);
-  const files = index.nodes.filter((node) => node.kind === "file" && inside(node.path) && !options.exclude?.has(node.path)).sort(rank).slice(0, options.limit ?? 24);
-  const folders = index.nodes.filter((node) => node.kind === "folder" && (!scopes.length ? !parentOf(node.path) : scopes.includes(parentOf(node.path)))).sort(rank).slice(0, 24);
+  const rank = (nodes: MemoryNode[], limit: number) => nodes.map((node) => ({ node, score: score(node) }))
+    .sort((a, b) => b.score - a.score || a.node.path.localeCompare(b.node.path)).slice(0, limit).map(({ node }) => node);
+  const files = rank(index.nodes.filter((node) => node.kind === "file" && inside(node.path) && !options.exclude?.has(node.path)), options.limit ?? 24);
+  const folders = rank(index.nodes.filter((node) => node.kind === "folder" && (!scopes.length ? !parentOf(node.path) : scopes.includes(parentOf(node.path)))), 24);
   return { files, folders };
 }

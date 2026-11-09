@@ -9,6 +9,7 @@ export interface RetrievalResult {
   probability: number;
   files: Array<{ path: string; content: string; probability?: number; complete: true; source: "decisions" | "identity" | "conversador" }>;
   omitted?: Array<{ path: string; reason: string }>;
+  limitations?: string[];
   limited: boolean;
 }
 
@@ -60,7 +61,12 @@ export async function retrieveMemory(options: {
     siblings.push(node);
     children.set(parent, siblings);
   }
-  const forced = (path: string) => mentions.some((file) => file === path || file.startsWith(`${path}/`));
+  const forcedPaths = new Set<string>();
+  for (const path of mentions) {
+    const parts = path.split("/");
+    for (let depth = 1; depth <= parts.length; depth++) forcedPaths.add(parts.slice(0, depth).join("/"));
+  }
+  const forced = (path: string) => forcedPaths.has(path);
   const state = { history: options.history, message: options.input,
     // Only direct local identity hits cross the model boundary at the gate.
     identityMatches: mentions.map((path) => {
@@ -74,6 +80,13 @@ export async function retrieveMemory(options: {
   options.onProgress?.("Decisions está avaliando se precisa consultar a memória");
   options.onTrace?.({ phase: "gate" });
   if (options.index) options.onTrace?.({ phase: "index", chars: options.index.chars, nodes: options.index.nodes.map(({ path, kind, title, aliases, description }) => ({ path, kind, title, aliases, description })) });
+  if (options.index && !options.index.nodes.some((node) => node.kind === "file")) {
+    options.onProgress?.("Não há documentos na memória local para consultar");
+    options.onTrace?.({ phase: "decision", searched: false, probability: 0, threshold: limits.gate,
+      reason: "Índice local sem documentos: não é necessária uma avaliação remota." });
+    options.onTrace?.({ phase: "complete", files: 0, limited: false });
+    return { searched: false, probability: 0, files: [], limited: false };
+  }
   const gate = await options.evaluate(state, {
     search: question("Devo buscar na memória profunda para responder o usuário?"),
   }, options.signal);
@@ -123,25 +136,27 @@ export async function retrieveMemory(options: {
           for (const parent of new Set(batch.map((item) => item.parent))) {
             options.onTrace?.({ phase: "discovered", parent, nodes: batch.filter((item) => item.parent === parent).map(({ node: { path, kind, title } }) => ({ path, kind, title })) });
           }
-          const questions = Object.fromEntries(batch.map(({ node }, i) => [
+          // Identity paths are already mandatory. Do not spend a predicate on
+          // a result that cannot change; still evaluate other branches normally.
+          const questions = Object.fromEntries(batch.flatMap(({ node }, i) => forced(node.path) ? [] : [[
             `node_${i}`, question(node.kind === "folder"
               ? "Esta pasta pode conter registros úteis para responder à mensagem atual?"
               : "Este arquivo é útil como contexto para responder à mensagem atual?", node),
-          ]));
-          const answers = await options.evaluate(state, questions, signal);
+          ]]));
+          const answers = Object.keys(questions).length ? await options.evaluate(state, questions, signal) : {};
           signal.throwIfAborted();
-          return batch.map(({ node, parent }, i) => ({ node, parent, probability: requiredProbability(answers, `node_${i}`) }));
+          return batch.map(({ node, parent }, i) => ({ node, parent, probability: forced(node.path) ? undefined : requiredProbability(answers, `node_${i}`) }));
         }));
         signal.throwIfAborted();
         for (const response of responses) {
           for (const parent of new Set(response.map((item) => item.parent))) {
             options.onTrace?.({ phase: "evaluated", parent, nodes: response.filter((item) => item.parent === parent).map(({ node: { path, kind, title }, probability }) => ({ path, kind, title,
-              probability, accepted: forced(path) || probability >= (kind === "folder" ? limits.folder : limits.file),
-              reason: forced(path) ? "Nome/apelido mencionado: explorar mesmo se abaixo do limiar." : `Limiar de ${kind === "folder" ? "pasta" : "arquivo"}: ${Math.round((kind === "folder" ? limits.folder : limits.file) * 100)}%.` })) });
+              probability, accepted: forced(path) || (probability ?? 0) >= (kind === "folder" ? limits.folder : limits.file),
+              reason: forced(path) ? "Nome/apelido identificado localmente: caminho obrigatório, sem julgamento remoto." : `Limiar de ${kind === "folder" ? "pasta" : "arquivo"}: ${Math.round((kind === "folder" ? limits.folder : limits.file) * 100)}%.` })) });
           }
           for (const { node, probability } of response) {
-            if (node.kind === "folder" && (forced(node.path) || probability >= limits.folder)) frontier.push({ path: node.path, probability });
-            if (node.kind === "file" && (forced(node.path) || probability >= limits.file)) candidates.push({ path: node.path, probability });
+            if (node.kind === "folder" && (forced(node.path) || (probability ?? 0) >= limits.folder)) frontier.push({ path: node.path, probability: probability ?? 1 });
+            if (node.kind === "file" && (forced(node.path) || (probability ?? 0) >= limits.file)) candidates.push({ path: node.path, probability });
           }
         }
       }

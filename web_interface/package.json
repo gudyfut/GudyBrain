@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check:curation": "tsx src/dev/validate-web-curation.ts",
     "check:retrieval-view": "tsx src/dev/validate-retrieval-view.ts",
-    "check:voice": "tsx src/dev/validate-live-voice.ts && node --conditions=react-server --import tsx src/dev/validate-live-chat.ts",
+    "check:voice": "tsx src/dev/validate-live-voice.ts && tsx src/dev/validate-live-memory.ts && node --conditions=react-server --import tsx src/dev/validate-live-chat.ts",
     "check:voice-ui": "node src/dev/validate-voice-browser.mjs"
   },
   "dependencies": {

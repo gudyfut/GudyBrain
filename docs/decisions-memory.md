@@ -20,6 +20,8 @@ e a [decisão arquitetural](adr/0005-selecao-memoria-via-decisions.md).
 1. **Índice local.** O código reconstrói em RAM títulos, descrições, caminhos e
    apelidos da árvore. O catálogo completo alimenta o atlas e a busca local;
    não é enviado inteiro aos modelos.
+   Se não houver documentos nesse índice, a seleção e a inspeção remotas são
+   dispensadas: a resposta recebe explicitamente um contexto vazio.
 2. **Triagem Decisions.** Recebe mensagem, histórico e correspondências locais de
    nomes/apelidos. Um predicado avalia se consultar memória profunda é útil.
    A busca começa com probabilidade ≥ 0,50 ou com uma identidade mencionada.
@@ -31,6 +33,9 @@ e a [decisão arquitetural](adr/0005-selecao-memoria-via-decisions.md).
    reservados antes das chamadas e os resultados aplicados em ordem determinística.
    Com orçamento esgotado, a janela de três pastas pode escolher uma fronteira
    diferente da navegação estritamente sequencial; a busca sinaliza essa limitação.
+   Caminhos obrigatórios por título ou apelido são percorridos localmente, sem
+   predicados redundantes nem probabilidades inventadas. As outras ramificações
+   continuam sendo avaliadas para encontrar relações e documentos complementares.
 4. **Leitura integral.** O código lê os arquivos escolhidos completos. Decisions recebe
    metadados na navegação, não os corpos desses documentos.
 5. **Conferência pelo conversador.** GPT recebe documentos já lidos e uma lista
@@ -38,6 +43,9 @@ e a [decisão arquitetural](adr/0005-selecao-memoria-via-decisions.md).
    a consulta. Essa inspeção também acontece quando a triagem foi negativa.
    Se todos os documentos indexados já foram lidos ou solicitados, a inspeção
    adicional é dispensada; omissões por orçamento continuam explícitas na resposta.
+   Ao esgotar uma pasta solicitada, volta aos candidatos gerais. Um refinamento
+   explícito substitui as preferências antigas da consulta. Se as quatro rodadas
+   acabarem com documentos pendentes, o contexto informa essa limitação.
 6. **Resposta.** GPT recebe o contexto final, arquivos omitidos e indicação de
    limites. A resposta chega em fragmentos; o turno só entra no histórico após
    conclusão confirmada.
@@ -69,7 +77,7 @@ O código valida os caminhos; não há ferramentas de sistema expostas ao GPT.
 | Etapa | Limite atual |
 | --- | --- |
 | Índice local | 2.000 nós, 200 pastas e profundidade 15 |
-| Seleção inicial Decisions | 40 pastas, 1.000 nós avaliados, 16 arquivos, 60.000 caracteres |
+| Seleção inicial Decisions | 40 pastas, 1.000 nós navegados, 16 arquivos, 60.000 caracteres |
 | Paralelismo Decisions | Até 3 requisições, cada uma com até 40 perguntas |
 | Candidatos por inspeção GPT | Até 24 arquivos e 24 pastas |
 | Pedidos por rodada | Até 8 arquivos e 4 pastas |
@@ -84,6 +92,8 @@ Um documento precisa caber **inteiro**. Se não couber no orçamento, é omitido
 com motivo; não há truncamento silencioso. A leitura complementar pode recuperar
 um arquivo omitido na seleção inicial. Exceder o índice ou o histórico gera
 erro explícito, não uma resposta fingindo acesso completo.
+Se a leitura complementar recuperar todos os documentos do índice, a limitação
+inicial já resolvida deixa de marcar a resposta como parcial.
 
 Esses limites são operacionais; os percentuais são relevância estimada, não
 certeza factual. Os limiares conservadores anteriores foram mantidos para a

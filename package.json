@@ -26,7 +26,7 @@
     "typecheck:core": "tsc --noEmit",
     "check:selection": "tsx src/dev/validate-chat-selection.ts",
     "check:chat-ui": "node web_interface/src/dev/validate-chat-browser.mjs",
-    "check:context": "tsx src/dev/validate-memory-context.ts",
+    "check:context": "tsx src/dev/validate-memory-context.ts && tsx src/dev/validate-memory-audit.ts",
     "smoke:responses": "tsx src/dev/smoke-responses.ts",
     "check:responses": "tsx src/dev/validate-responses.ts",
     "check:local-access": "tsx web_interface/src/dev/validate-local-access.ts",

@@ -133,4 +133,17 @@ await conversation.run("Consulte os registros atualizados");
 assert.equal(inspections, 0);
 assert.equal(roundLists, 4, "cada pasta é listada uma única vez por turno");
 assert.equal(conversation.history.length, 4);
+let identityCalls = 0;
+const identityBrowser = {
+  list: (path: string): MemoryNode[] => path === "" ? [node("social", "folder")]
+    : path === "social" ? [node("social/pessoas", "folder")]
+      : [{ ...node("social/pessoas/aster.md"), title: "Aster", aliases: ["Astro"] }],
+  read: browser.read,
+};
+const identity = await retrieveMemory({ ...base, input: "O que sabe sobre Astro?", browser: identityBrowser, index: buildMemoryIndex(identityBrowser),
+  evaluate: async (_state, questions) => { identityCalls++; assert.deepEqual(Object.keys(questions), ["search"]); return { search: .1 }; },
+});
+assert.equal(identityCalls, 1, "dispensa três chamadas de navegação em caminhos já obrigatórios");
+assert.equal(identity.files[0]?.path, "social/pessoas/aster.md");
+console.log("Identidade em árvore de três níveis: 1 chamada Decisions; os três julgamentos redundantes de navegação foram dispensados.");
 console.log("✓ Otimização: agrupamento, concorrência limitada, ordem determinística, índice por turno, limites, falhas e cancelamento; sem provedores reais.");

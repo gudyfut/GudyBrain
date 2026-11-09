@@ -64,6 +64,7 @@ try {
     const media = inputSink.stream;
     state.levels = async (mic, speaker) => { await audioContext.resume(); input.gain.value = mic; output.gain.value = speaker; };
     state.activity = (activity) => { liveSnapshot = { ...liveSnapshot, activity }; publish(); };
+    state.queryError = (error) => { liveSnapshot = { ...liveSnapshot, error }; publish(); };
     state.activeMeters = 0;
     window.AudioContext = class extends NativeAudioContext {
       constructor(...args) { if (state.failMeter) throw new Error("Analyser unavailable"); super(...args); state.activeMeters++; }
@@ -115,6 +116,10 @@ try {
   await page.evaluate(() => window.__liveTest.activity("Consultando a memória"));
   await page.getByRole("heading", { name: "Conectando as memórias" }).waitFor();
   await page.evaluate(() => window.__liveTest.activity(null));
+  await page.evaluate(() => window.__liveTest.queryError("Consulta sintética temporariamente indisponível"));
+  await page.getByText("Consulta sintética temporariamente indisponível", { exact: true }).waitFor();
+  await page.evaluate(() => window.__liveTest.queryError(undefined));
+  await page.getByText("Consulta sintética temporariamente indisponível", { exact: true }).waitFor({ state: "hidden" });
   assert.equal(await page.getByPlaceholder("Fale com Gudman…").isDisabled(), true);
   assert.equal(await page.getByRole("button", { name: "Memorizar", exact: true }).isDisabled(), true);
   await page.getByRole("button", { name: "Silenciar microfone" }).click();

@@ -28,6 +28,7 @@ export interface LiveControllerOptions {
 export class LiveController {
   private phase: LiveSnapshot["phase"] = "connecting";
   private readonly fragments: LiveFragment[] = [];
+  private messagesCache?: LiveSnapshot["messages"];
   private readonly seen = new Set<string>();
   private readonly delegations = new Set<string>();
   private readonly listeners = new Set<(event: LiveUpdate) => void>();
@@ -44,6 +45,7 @@ export class LiveController {
   private revision = 0;
   private job?: AbortController;
   private settleTimer?: ReturnType<typeof setTimeout>;
+  private settleUntil = 0;
   private closeTimer?: ReturnType<typeof setTimeout>;
   private readonly ticker: ReturnType<typeof setInterval>;
   private readonly acknowledgments = new Map<string, { resolve: () => void; reject: () => void; timer: ReturnType<typeof setTimeout> }>();
@@ -59,7 +61,7 @@ export class LiveController {
   }
 
   snapshot(): LiveSnapshot {
-    return { id: this.options.id, phase: this.phase, messages: liveMessages(this.fragments), activity: this.activity,
+    return { id: this.options.id, phase: this.phase, messages: this.messagesCache ??= liveMessages(this.fragments), activity: this.activity,
       seconds: this.seconds, usageConfirmed: this.usageConfirmed, reason: this.reason, error: this.error };
   }
 
@@ -130,6 +132,7 @@ export class LiveController {
       this.transcriptChars += event.delta.length;
       this.fragments.push({ id: this.options.id + ":" + (typeof event.event_id === "string" ? event.event_id : randomUUID()),
         role, text: event.delta, startMs: event.start_ms, endMs: event.end_ms });
+      this.messagesCache = undefined;
       this.lastActivity = this.now();
       if (role === "user" && this.pending && this.phase !== "closing") {
         this.pending.offset = Math.max(this.pending.offset, event.end_ms);
@@ -148,6 +151,7 @@ export class LiveController {
       this.delegations.add(delegation.id);
       this.job?.abort();
       this.pending = { id: delegation.id, offset: event.offset_ms, revision: ++this.revision };
+      this.error = undefined;
       this.activity = "Consultando a memória…";
       this.schedule();
       this.publish();
@@ -203,9 +207,10 @@ export class LiveController {
     this.listeners.clear();
   }
 
-  private schedule(): void {
+  private schedule(reset = true): void {
     clearTimeout(this.settleTimer);
-    this.settleTimer = setTimeout(() => { void this.work(); }, this.options.settleMs ?? 450);
+    if (reset) this.settleUntil = this.now() + (this.options.settleMs ?? 450);
+    this.settleTimer = setTimeout(() => { void this.work(); }, Math.max(0, this.settleUntil - this.now()));
     this.settleTimer.unref();
   }
 
@@ -226,14 +231,14 @@ export class LiveController {
       const workAbort = new AbortController();
       const workSignal = AbortSignal.any([abort.signal, workAbort.signal]);
       const thinking = this.append("session.thinking.append", task.id, "Consultando a memória. Ainda não há resultado confirmado.", workSignal);
-      const query = Promise.resolve().then(() => {
+      const query = abortable(Promise.resolve().then(() => {
         workSignal.throwIfAborted();
         return this.options.query(context.input, context.history, workSignal, (event) => {
           if (!valid() || workSignal.aborted) return;
           if (event.type === "retrieval_trace") this.emit({ type: "retrieval", event: event.event });
           if (event.type === "retrieval") { this.activity = event.message; this.publish(); }
         });
-      });
+      }), workSignal);
       let result: string;
       try { [, result] = await Promise.all([thinking, query]); }
       catch (error) {
@@ -258,7 +263,7 @@ export class LiveController {
       if (this.pending?.revision === task.revision) { this.pending = undefined; this.activity = null; }
       this.lastActivity = this.now();
       this.publish();
-      if (this.pending) this.schedule();
+      if (this.pending) this.schedule(false);
     }
   }
 
@@ -280,20 +285,45 @@ export class LiveController {
   private publish(): void { this.emit({ type: "snapshot", state: this.snapshot() }); }
 }
 
+/** Release the scheduler immediately even if a canceled provider settles late. */
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => { signal.removeEventListener("abort", abort); reject(signal.reason); };
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then((value) => { signal.removeEventListener("abort", abort); resolve(value); },
+      (error) => { signal.removeEventListener("abort", abort); reject(error); });
+    if (signal.aborted) abort();
+  });
+}
+
 export function delegationContext(history: readonly Message[], fragments: readonly LiveFragment[], offset: number): { input: string; history: Message[] } | undefined {
-  const available = fragments.filter((fragment) => fragment.startMs <= offset);
-  const users = available.filter((fragment) => fragment.role === "user");
+  const available = fragments.filter((fragment) => fragment.startMs <= offset).sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+  const userPositions = available.flatMap((fragment, index) => fragment.role === "user" ? [index] : []);
+  const users = userPositions.map((index) => available[index]!);
   const latest = users.at(-1);
   if (!latest) return undefined;
   // A short assistant backchannel must not split the user's current request.
   let first = users.length - 1;
-  while (first > 0 && users[first]!.startMs - users[first - 1]!.endMs <= 2_000) first--;
+  while (first > 0 && users[first]!.startMs - users[first - 1]!.endMs <= 2_000) {
+    // These disjoint slices visit each intervening fragment at most once.
+    const between = available.slice(userPositions[first - 1]! + 1, userPositions[first]!)
+      .filter((fragment) => fragment.role === "assistant" && fragment.endMs > users[first - 1]!.endMs);
+    if (between.length && !isBackchannel(between)) break;
+    first--;
+  }
   const utterance = users.slice(first);
   const start = utterance[0]!.startMs;
   const input = utterance.map((fragment) => fragment.text).join("").trim();
   if (!input) return undefined;
   return { input, history: [...history.map((message) => ({ ...message })),
     ...liveMessages(available.filter((fragment) => fragment.endMs <= start)).map(({ role, content }) => ({ role, content }))] };
+}
+
+const backchannels = new Set(["certo", "entendi", "uhum", "aham", "hum", "ok", "sim", "claro", "pode continuar", "estou ouvindo"]);
+function isBackchannel(fragments: readonly LiveFragment[]): boolean {
+  const text = fragments.map((fragment) => fragment.text).join("").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return backchannels.has(text) && Math.max(...fragments.map((fragment) => fragment.endMs)) - fragments[0]!.startMs <= 1_000;
 }
 
 // A UTF-8 byte is an upper bound for a byte-level BPE token. Leave room below

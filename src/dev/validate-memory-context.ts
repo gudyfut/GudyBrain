@@ -53,6 +53,7 @@ const conversation = new MemoryConversation({ browser, evaluate: low,
     assert.equal(payload.memory.files[0].content, content);
     assert.equal(payload.memory.files[0].complete, true);
     assert.equal(payload.memory.files[0].source, "conversador");
+    assert.equal(payload.memory.limited, false, "leitura integral complementar resolveu a omissão inicial de orçamento");
     assert.ok(payload.memory.files[0].content.includes("SENTINELA_NO_FIM"));
     request.onContent?.("Ele prefere trilhas.");
     return "Ele prefere trilhas.";
