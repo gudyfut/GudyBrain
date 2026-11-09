@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, BrainCircuit, Command, CornerDownLeft, LoaderCircle, MessageCircleMore, Mic, MicOff, PhoneOff, Plus, Square, UserRound, Wrench, X } from "lucide-react";
+import { AudioLines, Bot, BrainCircuit, Command, CornerDownLeft, LoaderCircle, MessageCircleMore, Mic, MicOff, PhoneOff, Plus, Square, UserRound, Wrench, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -10,6 +10,9 @@ import type { RetrievalEvent } from "@gudybrain/core/retrieval-events";
 import { MemoryAtlas } from "./memory-atlas";
 import { FloatingChat } from "./floating-chat";
 import "./neural-chat.css";
+import "./voice-workspace.css";
+import { VoiceStage } from "./voice-stage";
+import type { VoiceLevels } from "./voice-audio";
 import { initialTrace, reduceTrace, type RetrievalTrace } from "./retrieval-state";
 import { startLiveVoice, type LiveCall } from "./live-voice";
 import { formatVoiceTime, type LiveSnapshot } from "../shared/live";
@@ -38,10 +41,14 @@ export function ChatWorkspace() {
   const [muted, setMuted] = useState(false);
   const [playbackBlocked, setPlaybackBlocked] = useState(false);
   const [voiceTrace, setVoiceTrace] = useState<RetrievalTrace | undefined>();
+  const [view, setView] = useState<"voice" | "memory">("voice");
+  const voiceLevels = useRef<VoiceLevels>({ input: 0, output: 0 });
   const voiceActive = voiceConnecting || !!voice && voice.phase !== "closed";
   const generation = useRef(0);
   const requestBusy = useRef(false);
   const nearBottom = useRef(true);
+  const scrollInteractionAt = useRef(0);
+  const streamRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -55,6 +62,15 @@ export function ChatWorkspace() {
     voiceAbort.current?.abort(); voiceCall.current?.dispose();
   }; }, []);
   useEffect(() => { if (nearBottom.current) endRef.current?.scrollIntoView({ behavior: busy ? "auto" : "smooth" }); }, [messages, activity, busy]);
+  useEffect(() => {
+    const stream = streamRef.current;
+    if (!stream) return;
+    const observer = new ResizeObserver(() => {
+      if (nearBottom.current) stream.scrollTop = stream.scrollHeight;
+    });
+    observer.observe(stream);
+    return () => observer.disconnect();
+  }, []);
 
   async function newSession(): Promise<void> {
     const version = ++generation.current;
@@ -79,11 +95,14 @@ export function ChatWorkspace() {
     const epoch = ++voiceEpoch.current;
     const abort = new AbortController();
     voiceAbort.current = abort;
+    voiceLevels.current = { input: 0, output: 0 };
+    setView("voice");
     setVoiceConnecting(true); setVoice(null); setError(null); setMuted(false); setPlaybackBlocked(false);
     voiceTraceRef.current = undefined; setVoiceTrace(undefined);
     nearBottom.current = true;
     try {
       const call = await startLiveVoice({ sessionId, signal: abort.signal,
+        onLevels: (levels) => { if (epoch === voiceEpoch.current) voiceLevels.current = levels; },
         onSnapshot: (state) => {
           if (epoch !== voiceEpoch.current) return;
           setVoice(state);
@@ -137,6 +156,11 @@ export function ChatWorkspace() {
   function toggleMute(): void {
     voiceCall.current?.mute(!muted);
     setMuted(!muted);
+  }
+
+  function resumeAudio(): void {
+    void voiceCall.current?.resumeAudio().then(() => setPlaybackBlocked(false))
+      .catch(() => setError("O navegador bloqueou o som. Confira a permissão de áudio."));
   }
 
   async function curate(): Promise<void> {
@@ -232,9 +256,16 @@ export function ChatWorkspace() {
   }
 
   return (
-    <div className={"chat-page neural-chat" + (voiceActive ? " live-voice-active" : "")}>
-      <MemoryAtlas trace={voiceActive ? voiceTrace : messages.find((message) => message.id === selectedId)?.trace} selectedId={selectedId} busy={busy} onSelect={setSelectedId} moments={messages.flatMap((message, index) => message.role === "assistant" ? [{ id: message.id, label: messages[index - 1]?.content ?? "Conversa", phase: message.trace?.phase }] : [])} />
-      <FloatingChat busy={busy} voiceActive={voiceActive}>
+    <div className={`chat-page neural-chat ${view === "voice" ? "voice-layout" : "memory-layout"}${voiceActive ? " live-voice-active" : ""}`}>
+      {view === "voice" ? <>
+        <header className="voice-workspace-header"><div className="voice-workspace-brand"><AudioLines size={21} /><span>Gudman<small>Seu assistente pessoal</small></span></div><div className="workspace-views" aria-label="Visualização"><button aria-pressed={true}><AudioLines size={15} />Conversa</button><button aria-pressed={false} onClick={() => setView("memory")}><BrainCircuit size={15} />Memória</button></div></header>
+        <VoiceStage active={voiceActive} connecting={voiceConnecting} muted={muted} playbackBlocked={playbackBlocked} voice={voice} levels={voiceLevels} busy={busy} ready={!!sessionId} activity={activity}
+          onStart={() => void startVoice()} onMute={toggleMute} onStop={() => void stopVoice()} onResumeAudio={resumeAudio} onMemory={() => setView("memory")} />
+      </> : <>
+        <button className="return-to-voice" onClick={() => setView("voice")}><AudioLines size={16} />Voltar à conversa</button>
+        <MemoryAtlas trace={voiceActive ? voiceTrace : messages.find((message) => message.id === selectedId)?.trace} selectedId={selectedId} busy={busy} onSelect={setSelectedId} moments={messages.flatMap((message, index) => message.role === "assistant" ? [{ id: message.id, label: messages[index - 1]?.content ?? "Conversa", phase: message.trace?.phase }] : [])} />
+      </>}
+      <FloatingChat busy={busy} voiceActive={voiceActive} docked={view === "voice"}>
       <header className="chat-topbar">
 
         <div className="chat-actions">
@@ -245,32 +276,42 @@ export function ChatWorkspace() {
       </header>
       <div className={commandsOpen ? "chat-body commands-visible" : "chat-body"}>
         <section className="conversation" aria-live="polite">
-          <div className="message-stream" onScroll={(event) => { const el = event.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; }}>
-            {!messages.length && <div className="chat-welcome"><span className="welcome-mark"><MessageCircleMore size={27} /></span><span className="eyebrow">Conectado à sua memória</span><h1>Uma ideia. Novas conexões.</h1><p>Converse comigo e acompanhe o contexto ganhando forma no núcleo.</p><div className="prompt-suggestions"><button onClick={() => setInput("O que você lembra sobre as pessoas mais próximas de mim?")}>Pessoas próximas</button><button onClick={() => setInput("Me ajude a organizar o que tenho pensado ultimamente.")}>Organizar pensamentos</button><button onClick={() => setInput("Quais eventos marcantes estão registrados?")}>Eventos marcantes</button></div></div>}
+          <div className="message-stream" ref={streamRef} tabIndex={0} aria-label="Mensagens da conversa"
+            onWheel={() => { scrollInteractionAt.current = Date.now(); }} onTouchMove={() => { scrollInteractionAt.current = Date.now(); }}
+            onPointerDown={() => { scrollInteractionAt.current = Date.now(); }} onKeyDown={() => { scrollInteractionAt.current = Date.now(); }}
+            onScroll={(event) => {
+              const el = event.currentTarget;
+              // Resizing the stage should keep following captions. Only user
+              // scrolling opts out; reaching the bottom opts back in.
+              if (Date.now() - scrollInteractionAt.current < 1000 || !nearBottom.current)
+                nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+            }}>
+            {!messages.length && <div className="chat-welcome"><span className="welcome-mark"><MessageCircleMore size={27} /></span><span className="eyebrow">Conectado à sua memória</span><h2>{voiceActive ? "A conversa ganha palavras." : "Uma ideia. Novas conexões."}</h2><p>{voiceActive ? "O que você e Gudman disserem aparece aqui, enquanto a conversa acontece." : "Fale pela esfera ou escreva aqui. Este é o fio da nossa conversa."}</p>{!voiceActive && <div className="prompt-suggestions"><button onClick={() => setInput("O que você lembra sobre as pessoas mais próximas de mim?")}>Pessoas próximas</button><button onClick={() => setInput("Me ajude a organizar o que tenho pensado ultimamente.")}>Organizar pensamentos</button><button onClick={() => setInput("Quais eventos marcantes estão registrados?")}>Eventos marcantes</button></div>}</div>}
             {messages.map((message, index) => {
               const targetId = message.role === "assistant" ? message.id : messages[index + 1]?.id;
-              return <article className={`message ${message.role} ${selectedId === targetId ? "moment-selected" : ""}`} key={message.id} onClick={(event) => { if (targetId && !(event.target as Element).closest("a, button")) setSelectedId(targetId); }}><div className="message-avatar">{message.role === "user" ? <UserRound size={14} /> : <Bot size={14} />}</div><div className="message-content"><span className="message-author">{message.role === "user" ? "Você" : "Gudman"}{message.voiceId ? " · voz" : ""}</span>{message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : busy && message.id === messages.at(-1)?.id && message.role === "assistant" ? <div className="typing"><i /><i /><i /></div> : message.trace?.phase === "cancelled" ? <p>Resposta interrompida.</p> : message.trace?.phase === "error" ? <p>Não foi possível concluir a resposta.</p> : null}{message.role === "assistant" && <div className="message-tools"><button className="message-moment" aria-pressed={selectedId === message.id} onClick={() => setSelectedId(message.id)}><BrainCircuit size={12} />{message.trace?.phase === "cancelled" ? "Busca cancelada" : message.trace?.phase === "error" ? "Busca interrompida" : selectedId === message.id ? "Percurso em exibição" : "Ver percurso no núcleo"}</button></div>}</div></article>;
+              return <article className={`message ${message.role} ${selectedId === targetId ? "moment-selected" : ""}`} key={message.id} onClick={(event) => { if (targetId && !(event.target as Element).closest("a, button")) setSelectedId(targetId); }}><div className="message-avatar">{message.role === "user" ? <UserRound size={14} /> : <Bot size={14} />}</div><div className="message-content"><span className="message-author">{message.role === "user" ? "Você" : "Gudman"}{message.voiceId ? " · voz" : ""}</span>{message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : busy && message.id === messages.at(-1)?.id && message.role === "assistant" ? <div className="typing"><i /><i /><i /></div> : message.trace?.phase === "cancelled" ? <p>Resposta interrompida.</p> : message.trace?.phase === "error" ? <p>Não foi possível concluir a resposta.</p> : null}{message.role === "assistant" && message.trace && <div className="message-tools"><button className="message-moment" aria-pressed={selectedId === message.id} onClick={() => { setSelectedId(message.id); setView("memory"); }}><BrainCircuit size={12} />{message.trace?.phase === "cancelled" ? "Busca cancelada" : message.trace?.phase === "error" ? "Busca interrompida" : view === "memory" && selectedId === message.id ? "Percurso em exibição" : "Ver percurso no núcleo"}</button></div>}</div></article>;
             })}
             {activity && <div className="agent-activity"><LoaderCircle size={14} className="spin-icon" />{activity.includes("Consultando") ? <Wrench size={13} /> : null}<span>{activity}</span></div>}
             {error && <div className="error-banner">{error}{error.includes("Configurações") && <a href="/settings" className="button ghost">Abrir Configurações</a>}</div>}
             <div ref={endRef} />
           </div>
           <div className="composer-wrap">
-            {voiceActive && <div className="live-voice-panel" role="status">
+            {voiceActive && view === "memory" && <div className="live-voice-panel" role="status">
               <div className="live-voice-heading"><span className="voice-pulse" /><strong>{voiceConnecting ? "Conectando a voz…" : voice?.phase === "closing" ? "Encerrando a conversa…" : muted ? "Microfone silenciado" : "Conversa ao vivo"}</strong>
                 <span>{formatVoiceTime(voice?.seconds ?? 0)}</span></div>
               <p>{muted ? "A sessão continua ativa e consumindo créditos." : "Fale naturalmente. Você pode interromper Gudman."}</p>
               <div className="live-voice-controls">
                 {!voiceConnecting && voice?.phase !== "closing" && <button onClick={toggleMute} aria-pressed={muted}>{muted ? <Mic size={14} /> : <MicOff size={14} />}{muted ? "Ativar microfone" : "Silenciar microfone"}</button>}
-                {playbackBlocked && <button onClick={() => { void voiceCall.current?.resumeAudio().then(() => setPlaybackBlocked(false)).catch(() => setError("O navegador bloqueou o som. Confira a permissão de áudio.")); }}>Ativar som</button>}
+                {playbackBlocked && <button onClick={resumeAudio}>Ativar som</button>}
                 <button className="live-end" disabled={voice?.phase === "closing"} onClick={() => void stopVoice()}><PhoneOff size={14} />{voiceConnecting ? "Cancelar conexão" : "Encerrar"}</button>
               </div>
               <small>Voz gerada por IA · estimativa US$ {((voice?.seconds ?? 0) / 60 * 0.05).toFixed(2)} somente voz</small>
             </div>}
+            {voiceActive && view === "voice" && <div className="voice-transcript-note"><AudioLines size={14} /><span>A conversa aparece aqui em tempo real.<small>As legendas podem conter imprecisões.</small></span></div>}
             {!voiceActive && voice?.phase === "closed" && <div className="voice-receipt" role="status">Voz encerrada · {formatVoiceTime(voice.seconds)} · {voice.usageConfirmed ? "duração confirmada" : "consumo final não confirmado"}{voice.reason === "inactivity" ? " · por inatividade" : voice.reason === "duration_limit" ? " · limite de duração" : ""}</div>}
             <div className="composer">
               <textarea ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Fale com Gudman…" rows={1} disabled={!sessionId || voiceActive} />
-              <button className="voice-button" aria-label="Iniciar conversa ao vivo" title="Conversar ao vivo (usa créditos de API)" disabled={!sessionId || busy || voiceActive} onClick={() => void startVoice()}><Mic size={17} /></button>
+              {view === "memory" && <button className="voice-button" aria-label="Iniciar conversa ao vivo" title="Conversar ao vivo (usa créditos de API)" disabled={!sessionId || busy || voiceActive} onClick={() => void startVoice()}><Mic size={17} /></button>}
               {busy ? <button className="send-button stop" aria-label="Interromper" onClick={() => abortRef.current?.abort()}><Square size={14} fill="currentColor" /></button> : <button className="send-button" aria-label="Enviar" disabled={!input.trim() || !sessionId || voiceActive} onClick={() => void send()}><CornerDownLeft size={17} /></button>}
             </div>
             <div className="composer-hint"><span>{voiceActive ? "Encerre a voz para enviar texto ou memorizar." : "Enter envia · Voz usa créditos por tempo conectado"}</span>{model && <span>{voiceActive ? "gpt-live-1" : model}</span>}</div>

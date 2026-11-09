@@ -26,7 +26,7 @@ Node continuamente; o controle da voz não é adequado a funções serverless.
 
 ## Usar
 
-1. Clique no microfone **Iniciar conversa ao vivo** e autorize a captura.
+1. Clique na **esfera central** para iniciar a conversa ao vivo e autorize o microfone.
 2. Aguarde **Conversa ao vivo**. Fale naturalmente e interrompa a fala quando
    precisar corrigir o pedido.
 3. Use **Silenciar microfone** para suspender a entrada. Isso não encerra a
@@ -36,6 +36,18 @@ Node continuamente; o controle da voz não é adequado a funções serverless.
    informa se recebeu a duração final do provedor.
 5. Continue por texto ou clique em **Memorizar** para preparar propostas. Cada
    proposta ainda precisa da sua aprovação na tela de revisão.
+
+A esfera reage separadamente ao áudio do seu microfone e ao do assistente.
+Os rótulos indicam escuta, fala, consulta, conexão e microfone silenciado.
+Durante a chamada, clicar na esfera também alterna o microfone. A transcrição
+fica à direita no desktop e abaixo dos controles no celular. Ela acompanha novas
+falas; ao rolar para cima, você pode ler o histórico sem perder sua posição.
+
+Use **Memória** ou **Explorar memória** para abrir o mapa e **Voltar à conversa**
+para retornar à esfera. Alternar essa visualização não encerra a chamada.
+O navegador mede apenas amplitudes transitórias para a animação, sem gravar
+áudio adicional. A preferência de redução de movimento é respeitada; falhas
+da visualização não impedem a conversa por voz.
 
 Durante a chamada, envio de texto e curadoria da mesma sessão ficam bloqueados.
 **Nova conversa**, navegação para outra página e fechamento da aba também

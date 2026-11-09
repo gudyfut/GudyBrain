@@ -57,6 +57,7 @@ try {
     };
   });
   await page.goto(`${process.env.CHAT_TEST_URL || "http://127.0.0.1:3100"}/chat`);
+  await page.getByRole("button", { name: "Memória", exact: true }).click();
   const input = page.getByPlaceholder("Fale com Gudman…");
   const send = async (text) => { await input.fill(text); await page.getByRole("button", { name: "Enviar", exact: true }).click(); };
   await page.locator(".atlas-node").nth(1).waitFor();

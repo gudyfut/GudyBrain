@@ -1,5 +1,6 @@
 import type { RetrievalEvent } from "@gudybrain/core/retrieval-events";
 import type { LiveSnapshot, LiveUpdate } from "../shared/live";
+import { createVoiceMeter, type VoiceLevels } from "./voice-audio";
 
 export interface LiveCall {
   stop(): Promise<void>;
@@ -17,6 +18,7 @@ export async function startLiveVoice(options: {
   onPlaybackBlocked(): void;
   onFailure(message: string): void;
   onEnded(): void;
+  onLevels?(levels: VoiceLevels): void;
 }): Promise<LiveCall> {
   if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
     throw new Error("Este navegador não oferece voz compatível. Abra em localhost com permissão de microfone.");
@@ -26,6 +28,9 @@ export async function startLiveVoice(options: {
   const audio = new Audio();
   audio.autoplay = true;
   audio.setAttribute("playsinline", "");
+  const meter = createVoiceMeter((levels) => options.onLevels?.(levels));
+  audio.addEventListener("playing", () => meter.playback(true));
+  audio.addEventListener("pause", () => meter.playback(false));
   const eventAbort = new AbortController();
   let media: MediaStream | undefined;
   let liveId: string | undefined;
@@ -55,6 +60,7 @@ export async function startLiveVoice(options: {
     eventAbort.abort();
     options.signal.removeEventListener("abort", dispose);
     window.removeEventListener("pagehide", dispose);
+    meter.stop();
     media?.getTracks().forEach((track) => track.stop());
     audio.pause(); audio.srcObject = null;
     channel.close(); pc.close();
@@ -103,8 +109,10 @@ export async function startLiveVoice(options: {
     } catch { options.onFailure("A conexão de voz recebeu um evento inválido."); void stop(); }
   });
   pc.addEventListener("track", (event) => {
+    if (cleaned) return;
     audio.srcObject = event.streams[0] ?? new MediaStream([event.track]);
-    void audio.play().catch(() => { if (!cleaned) options.onPlaybackBlocked(); });
+    meter.connect("output", audio.srcObject);
+    void audio.play().then(() => { if (!cleaned) meter.playback(true); }).catch(() => { if (!cleaned) options.onPlaybackBlocked(); });
   });
   pc.addEventListener("connectionstatechange", () => {
     clearTimeout(disconnectTimer);
@@ -120,6 +128,7 @@ export async function startLiveVoice(options: {
     options.signal.throwIfAborted();
     media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     if (cleaned || options.signal.aborted) { media.getTracks().forEach((track) => track.stop()); throw new Error("Conexão cancelada."); }
+    meter.connect("input", media);
     for (const track of media.getTracks()) pc.addTrack(track, media);
     await pc.setLocalDescription(await pc.createOffer());
     await waitForIce(pc, options.signal);
@@ -155,8 +164,10 @@ export async function startLiveVoice(options: {
     if (cleaned || options.signal.aborted) throw new Error("Conexão cancelada.");
     await post("ready");
     if (cleaned || options.signal.aborted) throw new Error("Conexão cancelada.");
-    return { stop, dispose, mute: (muted) => media?.getAudioTracks().forEach((track) => { track.enabled = !muted; }),
-      resumeAudio: () => audio.play() };
+    return { stop, dispose, mute: (muted) => {
+      media?.getAudioTracks().forEach((track) => { track.enabled = !muted; }); meter.mute(muted);
+    },
+      resumeAudio: async () => { void meter.resume(); await audio.play(); meter.playback(true); } };
   } catch (error) {
     if (liveId && !cleaned) await stop();
     else cleanup();

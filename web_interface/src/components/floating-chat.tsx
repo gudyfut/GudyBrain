@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Grip, Maximize2, MessageCircle, Minus, RotateCcw } from "lucide-react";
 
-export function FloatingChat({ children, busy, voiceActive = false }: { children: ReactNode; busy: boolean; voiceActive?: boolean }) {
+export function FloatingChat({ children, busy, voiceActive = false, docked = false }: { children: ReactNode; busy: boolean; voiceActive?: boolean; docked?: boolean }) {
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -19,7 +19,8 @@ export function FloatingChat({ children, busy, voiceActive = false }: { children
     if (panel.current?.parentElement) observer.observe(panel.current.parentElement);
     return () => observer.disconnect();
   }, []);
-  return <div ref={panel} className={`floating-chat ${collapsed ? "collapsed" : ""} ${dragging ? "dragging" : ""}`} style={position ? { left: position.x, top: position.y, right: "auto", bottom: "auto" } : undefined}>
+  return <div ref={panel} className={`floating-chat ${docked ? "docked-chat" : ""} ${collapsed && !docked ? "collapsed" : ""} ${dragging && !docked ? "dragging" : ""}`} style={position && !docked ? { left: position.x, top: position.y, right: "auto", bottom: "auto" } : undefined} role="region" aria-label="Histórico da conversa">
+    {docked ? <header className="docked-title"><MessageCircle size={19} /><span><strong>Conversa</strong><small>{voiceActive ? "Transcrição em tempo real" : "Suas ideias continuam aqui"}</small></span><span className={voiceActive ? "transcript-badge is-live" : "transcript-badge"}><i />{voiceActive ? "Ao vivo" : "Chat"}</span></header> :
     <header className="floating-title">
       <button className="chat-drag" aria-label="Mover conversa; use as setas do teclado" title="Arraste para mover · setas também movem" onKeyDown={(event) => {
         if (!event.key.startsWith("Arrow")) return;
@@ -34,8 +35,8 @@ export function FloatingChat({ children, busy, voiceActive = false }: { children
       </button>
       <button aria-label="Restaurar posição da conversa" title="Restaurar posição" onClick={() => setPosition(null)}><RotateCcw size={14} /></button>
       <button aria-label={collapsed ? "Expandir conversa" : "Recolher conversa"} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <Maximize2 size={15} /> : <Minus size={15} />}</button>
-    </header>
-    <div className="floating-content" inert={collapsed}>{children}</div>
-    {collapsed && <button className="fc-reopen" onClick={() => setCollapsed(false)}><MessageCircle size={15} /> Abrir conversa {voiceActive ? <span>· voz ativa</span> : busy && <span>· em andamento</span>}</button>}
+    </header>}
+    <div className="floating-content" inert={collapsed && !docked}>{children}</div>
+    {collapsed && !docked && <button className="fc-reopen" onClick={() => setCollapsed(false)}><MessageCircle size={15} /> Abrir conversa {voiceActive ? <span>· voz ativa</span> : busy && <span>· em andamento</span>}</button>}
   </div>;
 }
