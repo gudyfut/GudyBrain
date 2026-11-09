@@ -22,7 +22,7 @@ export async function startLive(chatId: string, sdp: string, signal: AbortSignal
   if (!memoryChatEnabled()) throw new LiveError("A conversa ao vivo exige CHAT_MODE=jev.", 400);
   const apiKey = requireSecret("GPT_API_KEY");
   requireSecret("TYPESAFE_API_KEY");
-  const voice = process.env.GPT_LIVE_VOICE?.trim() || "tempo";
+  const voice = process.env.GPT_LIVE_VOICE?.trim() || "marin";
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(voice)) throw new LiveError("GPT_LIVE_VOICE deve ser o nome de uma voz do GPT-Live.", 400);
   const idleMs = configSeconds("GPT_LIVE_IDLE_SECONDS", 90, 15, 300) * 1000;
   const maxMs = configSeconds("GPT_LIVE_MAX_SECONDS", 1800, 60, 7200) * 1000;

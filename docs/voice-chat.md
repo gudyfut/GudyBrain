@@ -16,7 +16,7 @@ login. O modo GLM legado continua disponível para texto; não atende a voz Live
 
 | Opção | Padrão | Limite |
 | --- | --- | --- |
-| `GPT_LIVE_VOICE` | `tempo`, voz brasileira masculina | Nome de voz suportada; `bossa` é uma opção brasileira feminina |
+| `GPT_LIVE_VOICE` | `marin`, com instruções de fala em português brasileiro | Nome de voz suportada; `bossa` e `tempo` são alternativas com influência brasileira |
 | `GPT_LIVE_IDLE_SECONDS` | `90` | Inteiro entre 15 e 300 segundos |
 | `GPT_LIVE_MAX_SECONDS` | `1800` | Inteiro entre 60 e 7200 segundos |
 
