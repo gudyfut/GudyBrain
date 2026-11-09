@@ -7,7 +7,7 @@ junto dos agentes porque são parte de sua configuração executável.
 
 | Pasta | Responsabilidade |
 | --- | --- |
-| `core/` | Runtime, provedores GLM/Jev/Responses, OAuth, ambiente e eventos |
+| `core/` | Runtime, provedores GLM/Decisions/Responses, OAuth, ambiente e eventos |
 | `agents/` | Etapas especializadas, perfis e orquestração |
 | `tools/` | Operações locais e contratos compartilhados de memória |
 | `dev/` | Validações e diagnósticos, fora do fluxo do produto |
@@ -19,11 +19,12 @@ Componentes de navegador não devem importar leitores de memória ou credenciais
 
 [`agents/registry.ts`](agents/registry.ts) define perfis, valores padrão,
 limites, prompts e ferramentas permitidas. Os modelos do chat também respeitam
-`OPENAI_MODEL` e `JEV_MODEL`; os perfis GLM definem seus próprios modelos.
+`OPENAI_MODEL` para Responses; Decisions usa `gpt-6-luna` pelo contrato da API.
+Os perfis GLM definem seus próprios modelos.
 Não basta alterar um único perfil para configurar todos os provedores.
 
 Agentes com ferramentas precisam de definição em `tools/*.md`, permissão no
-perfil e handler em `tools/registry.ts`. O chat Jev/GPT usa pedidos estruturados
+perfil e handler em `tools/registry.ts`. O chat Decisions/GPT usa pedidos estruturados
 validados pelo código, sem expor essas ferramentas aos modelos.
 
 O [índice dos agentes](agents/README.md) mostra as etapas.

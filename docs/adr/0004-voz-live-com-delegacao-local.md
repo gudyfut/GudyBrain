@@ -4,6 +4,10 @@
 
 **Data:** 2026-11-09
 
+Evolução: o [ADR 0005](0005-selecao-memoria-via-decisions.md) substitui Jev por
+Decisions na seleção delegada. As decisões de voz, histórico e revisão abaixo
+continuam em vigor.
+
 ## Contexto
 
 A voz anterior encadeava transcrição Gemini, revisão do texto, consulta de

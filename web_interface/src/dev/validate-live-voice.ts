@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import type { Message } from "@gudybrain/core/glm";
+import { DecisionsError } from "@gudybrain/core/decisions";
 import { LiveController, delegationContext, voiceChunks, type LiveControllerOptions } from "../server/live-controller";
 import { createLiveConnection, liveSessionBody, LiveError } from "../server/live-provider";
 import { readLiveRequest, liveErrorResponse } from "../server/live-http";
@@ -172,6 +173,15 @@ assert.ok(voiceChunks(long).every((chunk) => Buffer.byteLength(chunk) <= 450));
   h.controller.ready(); now = 101; h.controller.tick();
   await until(() => h.controller.snapshot().phase === "closed");
   assert.equal(h.controller.snapshot().reason, "duration_limit");
+}
+
+{
+  const h = harness({ query: async () => { throw new DecisionsError("A Decisions API recusou uma avaliação.", "refusal"); } });
+  transcript(h.controller, "user", "Pergunta fictícia"); delegate(h.controller);
+  await until(() => !!h.controller.snapshot().error);
+  assert.match(h.controller.snapshot().error!, /Decisions API recusou/);
+  assert.ok(h.sent.some((event) => event.type === "session.commentary.append" && String(event.content).includes("não invente")));
+  await h.controller.close();
 }
 
 const request = (body: unknown) => new Request("http://127.0.0.1:3000/api/chat/voice/live", {

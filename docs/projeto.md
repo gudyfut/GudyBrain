@@ -9,7 +9,7 @@ autoria e revisão humana do que será registrado.
 | Componente | Papel |
 | --- | --- |
 | Gudman | Conversa por texto/voz com recuperação de memória |
-| Jev | Triagem, navegação e julgamento de candidatos no chat |
+| Decisions | Triagem, navegação e julgamento de candidatos no chat |
 | Responses API | Inspeção de documentos, extração/redação e resposta GPT |
 | Memória Markdown | Conceitos com metadados, IDs, seções e links |
 | Curadoria | Propostas com evidências e escrita contratual |

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AgentEvent } from "@gudybrain/core/agent";
 import type { Message } from "@gudybrain/core/glm";
+import { DecisionsError } from "@gudybrain/core/decisions";
 import { liveMessages, type LiveFragment, type LiveSnapshot, type LiveUpdate } from "../shared/live";
 
 export interface LiveTransport {
@@ -232,9 +233,10 @@ export class LiveController {
         if (!valid()) return;
         await this.append("session.commentary.append", task.id, chunk, abort.signal);
       }
-    } catch {
+    } catch (error) {
       if (valid()) {
-        this.error = "Não foi possível concluir a consulta de memória. Confira a conexão ChatGPT e a cota do Jev em Configurações.";
+        this.error = error instanceof DecisionsError ? error.message
+          : "Não foi possível concluir a consulta de memória. Confira a conexão ChatGPT e os créditos da API OpenAI em Configurações.";
         try { await this.append("session.commentary.append", task.id, "A consulta falhou. Informe que não conseguiu verificar a memória; não invente uma resposta.", abort.signal); }
         catch { this.transportFailed(); }
       }

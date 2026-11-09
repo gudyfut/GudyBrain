@@ -18,8 +18,8 @@ Para criar sua memória, siga [os modelos](../memory-template/index.md).
 
 | Recurso | Configuração |
 | --- | --- |
-| Chat e curadoria do chat | `TYPESAFE_API_KEY` e conta ChatGPT conectada na interface |
-| Modelo Jev | `JEV_MODEL`, padrão `jev-latest` |
+| Chat e curadoria do chat | `GPT_API_KEY` e conta ChatGPT conectada na interface |
+| Modelo Decisions | `gpt-6-luna`, fixado pelo contrato atual da API |
 | Resposta e curadoria do chat | `OPENAI_MODEL`, padrão `gpt-6-luna` |
 | Voz ao vivo | `GPT_API_KEY`; opções em [voz](voice-chat.md) |
 | Análise e curadoria de calls | `GLM_API_KEY`; `GLM_BASE_URL` é opcional |
@@ -27,8 +27,13 @@ Para criar sua memória, siga [os modelos](../memory-template/index.md).
 | Transcrição de calls | `GROQ_API_KEY` e FFmpeg |
 
 O `.env.example` lista os valores iniciais. Credenciais de um provedor não
-autenticam os demais. `CHAT_MODE=jev` é o padrão; `CHAT_MODE=legacy` usa o
+autenticam os demais. `CHAT_MODE=decisions` é o padrão; `CHAT_MODE=legacy` usa o
 conversante GLM anterior e exige `GLM_API_KEY`.
+
+Na branch GPT-Live, `CHAT_MODE=jev` é aceito apenas como alias de migração para
+Decisions. Não faz chamadas TypeSafe. Use `CHAT_MODE=decisions` nas configurações
+novas. `JEV_MODEL` e `TYPESAFE_API_KEY` antigos não são usados nesta branch.
+Ao voltar à branch Gemini, confira o `.env.example` daquela versão.
 
 ## Conectar ChatGPT
 
@@ -37,9 +42,11 @@ conversante GLM anterior e exige `GLM_API_KEY`.
 3. Escolha um modelo no catálogo retornado para essa conta.
 4. Inicie **Nova conversa** depois de trocar o modelo ou a conta.
 
-O servidor usa OAuth e chama diretamente a Responses API. Não precisa de API
-key OpenAI nem de login na CLI Codex. O seletor salva `OPENAI_MODEL` no `.env`;
-a disponibilidade depende da conta autorizada.
+O transporte Responses usa OAuth e não precisa de login na CLI Codex. O seletor
+salva `OPENAI_MODEL` no `.env`; a disponibilidade depende da conta autorizada.
+Isso não troca o modelo da Decisions API nem a credencial de GPT-Live.
+Decisions e voz usam os créditos da organização de `GPT_API_KEY`; Responses
+continua usando a autorização do plano ChatGPT.
 
 Credenciais ficam fora do repositório: `%APPDATA%/GudyBrain/chatgpt` no Windows
 (DPAPI do usuário) ou `~/.config/gudybrain/chatgpt` em Unix (permissões restritas).

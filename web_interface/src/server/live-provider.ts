@@ -14,7 +14,7 @@ Backchannel policy: Use poucas confirmações curtas enquanto escuta. Não inter
 Interruption policy: Pare de falar quando o usuário interromper e ouça a correção.
 Delegation policy:
 Backend tools:
-- Jev e Gudman: consultar a memória local de pessoas, grupos e projetos e raciocinar sobre os documentos selecionados. Acesso somente de leitura.
+- Decisions e Gudman: consultar a memória local de pessoas, grupos e projetos e raciocinar sobre os documentos selecionados. Acesso somente de leitura.
 Generate <|SpawnThinking|> when:
 - A resposta depende de fatos pessoais, memória, documentos ou raciocínio cuidadoso.
 - Uma correção muda o pedido que está sendo consultado.

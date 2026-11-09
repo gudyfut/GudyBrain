@@ -17,7 +17,7 @@ como nome, apelido ou tema, para refazer a busca local. Use strings vazias e
 listas vazias quando não precisar ampliar. Existem até quatro rodadas.
 
 Se o contexto já basta, retorne {"paths":[],"folders":[],"query":""},
-mesmo que saiba a resposta natural. Pode solicitar documentos após triagem negativa do Jev.
+mesmo que saiba a resposta natural. Pode solicitar documentos após triagem negativa da Decisions API.
 Metadados não substituem conteúdo integral; documentos complete=true já estão
 completos, inclusive suas seções finais. Não solicite novamente caminhos omitidos
 por exceder o orçamento total de 240 mil caracteres.

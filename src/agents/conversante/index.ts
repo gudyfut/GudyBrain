@@ -1,7 +1,7 @@
 import { type AgentEvent, type Agent } from "../../core/agent";
 import { gerarArvoreMemoria } from "../../tools/memoria/arvore";
 import { AGENT_PROFILES, createAgentFromProfile, memoryChatEnabled } from "../registry";
-import { JevConversation } from "./jev-conversation";
+import { MemoryConversation } from "./memory-conversation";
 
 export type ConversationAgent = Pick<Agent, "history" | "model" | "run" | "toolNames">;
 
@@ -17,7 +17,7 @@ export function criarConversante(options: {
   onStep?: (event: AgentEvent) => void;
 }): ConversanteConfigurado {
   if (memoryChatEnabled()) {
-    const agent = new JevConversation({ onStep: options.onStep });
+    const agent = new MemoryConversation({ onStep: options.onStep });
     return { agent, model: agent.model, arvoreMemoria: "", niveisArvore: 0 };
   }
   if (!options.apiKey?.trim()) throw new Error("CHAT_MODE=legacy exige GLM_API_KEY.");

@@ -14,7 +14,7 @@ export interface AgentPipelineIdentity {
 /** Posição operacional canônica de cada agente na esteira. Isso complementa
  * modelo/permissões do registry e evita que prompts locais redefinam papéis. */
 export const AGENT_PIPELINE: Readonly<Record<AgentId, AgentPipelineIdentity>> = {
-  "recuperador-jev": {
+  "recuperador-decisions": {
     stage: "Triagem e recuperação progressiva", receives: "Mensagem atual, histórico e índice de caminhos, títulos, apelidos e descrições.",
     upstream: "Chat web", upstreamGuarantees: ["Caminhos são enumerados pelo código dentro do bundle."],
     upstreamLimitations: ["Relevância é probabilística; descrições podem ser incompletas."],
@@ -23,7 +23,7 @@ export const AGENT_PIPELINE: Readonly<Record<AgentId, AgentPipelineIdentity>> = 
   },
   "resposta-memoria": {
     stage: "Consulta complementar e resposta", receives: "Mensagem, histórico, índice de metadados e arquivos integrais selecionados.",
-    upstream: "Recuperador Jev", upstreamGuarantees: ["Arquivos selecionados foram lidos pelo código."],
+    upstream: "Recuperador Decisions", upstreamGuarantees: ["Arquivos selecionados foram lidos pelo código."],
     upstreamLimitations: ["Seleção não garante completude nem correção dos registros."],
     produces: "Pedidos estruturados de arquivos do índice, lidos pelo código, e resposta contextualizada.", downstream: "Usuário e curadoria sob demanda",
     forbidden: ["Executar ferramentas", "solicitar caminhos fora do índice", "escrever memória"],

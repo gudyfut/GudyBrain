@@ -33,10 +33,10 @@ try {
         trace({ phase: "evaluated", parent: "", nodes: folders.map((node, i) => ({ ...node, probability: i ? .12 : .95, accepted: !i })) }),
         trace({ phase: "folder", path: "projetos" }), trace({ phase: "folder", path: "social" }), trace({ phase: "discovered", parent: "social", nodes: files }),
         trace({ phase: "evaluated", parent: "social", nodes: files.map((node, i) => ({ ...node, probability: i === 1 ? .2 : .91, accepted: i !== 1 })) }),
-        trace({ phase: "selected", path: files[0].path, chars: 4321, source: "jev" }), trace({ phase: "selected", path: files[2].path, chars: 2100, source: "jev" }),
+        trace({ phase: "selected", path: files[0].path, chars: 4321, source: "decisions" }), trace({ phase: "selected", path: files[2].path, chars: 2100, source: "decisions" }),
         trace({ phase: "complete", files: 2, limited: message.includes("grande") }),
       );
-      if (message.includes("falha")) events.push({ type: "error", message: "Falha simulada do Jev" });
+      if (message.includes("falha")) events.push({ type: "error", message: "Falha simulada do Decisions" });
       else events.push(trace({ phase: "answer" }), { type: "content", content: "Resposta simulada com contexto selecionado." }, { type: "done" });
       let timer;
       let index = 0;
@@ -157,7 +157,7 @@ try {
   await page.getByRole("button", { name: "Interromper", exact: true }).click();
   await page.getByRole("button", { name: "Busca cancelada", exact: true }).waitFor();
   await send("falha");
-  await page.getByText("Falha simulada do Jev", { exact: true }).waitFor();
+  await page.getByText("Falha simulada do Decisions", { exact: true }).waitFor();
   assert.ok((await page.locator(".atlas-status").innerText()).includes("Busca interrompida"));
 
   await page.setViewportSize({ width: 390, height: 844 });

@@ -10,6 +10,7 @@ como fonte do estado atual. Leia pelo índice somente o ADR pertinente à tarefa
 | [0002](0002-revisao-humana-da-memoria.md) | Revisão humana antes da escrita de memória | Aceita |
 | [0003](0003-modelo-via-responses-api.md) | Acesso ao modelo pela Responses API com plano ChatGPT | Aceita |
 | [0004](0004-voz-live-com-delegacao-local.md) | GPT-Live com delegação para o agente local | Aceita |
+| [0005](0005-selecao-memoria-via-decisions.md) | Seleção de memória pela Decisions API | Aceita |
 
 Crie um ADR quando uma tarefa escolher ou mudar uma fronteira arquitetural que
 futuros contribuidores precisarão entender. Não crie ADR para cada bug, troca de

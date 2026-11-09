@@ -8,9 +8,9 @@ histórico interno de outros agentes.
 
 | Componente | Entrada e resultado | Permissões |
 | --- | --- | --- |
-| Recuperador Jev | Mensagem/histórico/metadados → seleção e eventos | Escolher nós enumerados pelo código |
+| Recuperador Decisions | Mensagem/histórico/metadados → seleção e eventos | Escolher nós enumerados pelo código |
 | Conversador GPT | Histórico/documentos → inspeção e resposta | Pedir leituras estruturadas; sem ferramentas de sistema |
-| Curadoria de chat | Conversa com citações → candidatos | GPT extrai/redige; Jev julga/roteia; código valida |
+| Curadoria de chat | Conversa com citações → candidatos | GPT extrai/redige; Decisions julga/roteia; código valida |
 | Analista de call | Transcrição → relatório atribuído | Leitura dirigida; não prepara candidatos |
 | Curador de call | Relatório + memória vigente → candidatos e cobertura | Leitura, contextualização e preparação |
 | Preenchedor | Deltas + documento atual → Markdown validado | Não usa IA nem persiste |
@@ -19,8 +19,8 @@ histórico interno de outros agentes.
 ## Fluxos
 
 ```text
-Mensagem → índice local → Jev → documentos → inspeção GPT → resposta GPT
-Chat → extração GPT → julgamento Jev → itens GPT → proposta → revisão → memory/
+Mensagem → índice local → Decisions → documentos → inspeção GPT → resposta GPT
+Chat → extração GPT → julgamento Decisions → itens GPT → proposta → revisão → memory/
 Call → analista GLM → curador GLM → proposta → revisão → memory/
 ```
 
@@ -37,15 +37,15 @@ das observações. Ambos compartilham o contrato de memória.
 - `src/agents/registry.ts`: perfis, valores padrão, prompts e ferramentas permitidas.
 - `src/core/llm.ts`: contrato de geração e seleção de `OPENAI_MODEL`.
 - `src/core/responses.ts` e `chatgpt-auth.ts`: transporte e autenticação ChatGPT.
-- `src/core/jev.ts`: avaliações TypeSafe.
+- `src/core/decisions.ts`: avaliações OpenAI.
 - `src/agents/pipeline.ts`: entradas, saídas e limites entre etapas.
 - `src/tools/registry.ts`: handlers locais das ferramentas GLM.
 
-Chat padrão usa Jev e Responses API sem ferramentas expostas ao modelo.
+Chat padrão usa Decisions e Responses API sem ferramentas expostas ao modelo.
 Calls e o chat `legacy` usam GLM com tool-calling. Uma ferramenta GLM precisa
 de definição no agente, permissão no perfil e handler implementado.
 
-`OPENAI_MODEL` e `JEV_MODEL` sobrescrevem os padrões do chat. Modelos GLM são
+`OPENAI_MODEL` configura Responses; Decisions usa `gpt-6-luna`. Modelos GLM são
 definidos nos perfis; não existe `GLM_MODEL` global. Veja
 [configuração](configuracao.md) antes de trocar um modelo.
 

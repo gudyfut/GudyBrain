@@ -18,7 +18,7 @@ modelos, parâmetros e comandos.
 
 | Guia | O que explica |
 | --- | --- |
-| [Busca Jev](jev-memory.md) | Triagem, navegação, leitura integral e resposta |
+| [Busca Decisions](decisions-memory.md) | Triagem, navegação, leitura integral e resposta |
 | [Estrutura](estrutura-memoria.md) | Pastas, metadados, seções e organização |
 | [Seleção e escrita](memory-writing.md) | Evidências, contrato v2 e aprovação |
 | [Modelos](../memory-template/index.md) | Como começar um acervo local vazio |

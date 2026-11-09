@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { retrieveMemory } from "@gudybrain/agents/recuperador-jev";
+import { retrieveMemory } from "@gudybrain/agents/recuperador-decisions";
 import { graphNodes, initialTrace, reduceTrace, visibleGraphTrace } from "../components/retrieval-state";
 import { AtlasPhysics, atlasEdge } from "../components/atlas-physics";
 

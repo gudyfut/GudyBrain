@@ -1,6 +1,6 @@
 # Conversa ao vivo com GPT-Live
 
-A branch `codex/gpt-live` usa GPT-Live para ouvir e falar continuamente. Jev
+A branch `codex/gpt-live` usa GPT-Live para ouvir e falar continuamente. Decisions
 seleciona memória e Gudman consulta os documentos pelo fluxo existente. A voz
 anterior, com transcrição e síntese Gemini, está em `codex/voice-gemini`.
 
@@ -10,7 +10,7 @@ No `.env` da raiz, configure `GPT_API_KEY` com uma chave de projeto da OpenAI
 que tenha acesso a `gpt-live-1`. Reinicie o servidor depois de editar o arquivo.
 A chave permanece no servidor. Não use prefixo `NEXT_PUBLIC_`.
 
-O backend de memória exige `CHAT_MODE=jev`, `TYPESAFE_API_KEY` e uma conta
+O backend de memória exige `CHAT_MODE=decisions`, `GPT_API_KEY` e uma conta
 ChatGPT conectada em **Configurações**. A API key da voz não substitui esse
 login. O modo GLM legado continua disponível para texto; não atende a voz Live.
 
@@ -76,8 +76,9 @@ orçamento garantido. [Preços](https://developers.openai.com/api/docs/models/gp
 e [regras de cobrança](https://developers.openai.com/api/docs/guides/voice-latency-cost).
 
 Créditos do benefício Pro podem cobrir GPT-Live quando vinculados à mesma
-organização da chave. Eles expiram ao fim do ciclo. O backend Jev e a conexão
-ChatGPT mantêm seus próprios limites; não entram na estimativa de voz exibida.
+organização da chave. Eles expiram ao fim do ciclo. Decisions usa a mesma
+`GPT_API_KEY` e tem cobrança de API separada da duração de voz. Responses continua
+com a autorização ChatGPT. Esses usos não entram na estimativa de voz exibida.
 Confira o saldo e o acesso ao modelo na plataforma OpenAI.
 [Condições do benefício](https://developers.openai.com/api/docs/guides/chatgpt-api-credits).
 

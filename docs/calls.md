@@ -83,4 +83,4 @@ complemento, reforço, contradição, duplicata, conteúdo efêmero e ambiguidad
 Uma proposta precisa manter autoria e citações. O modelo não escreve o Markdown
 final nem persiste arquivos. Veja [seleção e escrita](memory-writing.md).
 Áudio segue para Groq; transcrição e contexto necessário seguem para GLM.
-O fluxo de calls não usa o transporte ChatGPT nem a seleção Jev do chat.
+O fluxo de calls não usa o transporte ChatGPT nem a seleção Decisions do chat.

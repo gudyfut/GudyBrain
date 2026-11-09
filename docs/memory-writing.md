@@ -12,7 +12,7 @@ Ao usar **Memorizar** ou `/memorizar`, o sistema captura o histórico disponíve
    citações vinculadas às mensagens.
 2. O código confere IDs e citações exatas. Isso valida a origem, não prova a
    interpretação semântica.
-3. Jev julga sustentação explícita, atribuição e utilidade futura. Usa Choice
+3. Decisions julga sustentação explícita, atribuição e utilidade futura. Usa Choice
    para tipo/seção e compara identidades, duplicatas e contradições.
 4. Para criação, escolhe progressivamente uma subpasta dentro do tipo. Para
    atualização, mantém o caminho do registro existente.
@@ -36,7 +36,7 @@ por execução. Falhas ou limites excedidos nunca aprovam gravação automaticam
 
 Calls continuam usando GLM. O analista produz observações atribuídas; o curador
 consulta a memória vigente, julga novidade e prepara deltas. Não é a mesma
-seleção Jev do chat. Cada observação média/alta recebe um destino auditável.
+seleção Decisions do chat. Cada observação média/alta recebe um destino auditável.
 Veja [Calls](calls.md) e [arquitetura](arquitetura-agentes.md).
 
 ## Contrato de escrita v2

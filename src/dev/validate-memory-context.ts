@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryBrowser } from "../tools/memoria/navegador";
 import { buildMemoryIndex, locateMemory, mentionedMemories } from "../tools/memoria/indice-contexto";
-import { JevConversation, MEMORY_INSPECTION_SCHEMA } from "../agents/conversante/jev-conversation";
-import type { EvaluateJev } from "../core/jev";
+import { MemoryConversation, MEMORY_INSPECTION_SCHEMA } from "../agents/conversante/memory-conversation";
+import type { EvaluateDecisions } from "../core/decisions";
 import type { RetrievalEvent } from "../core/retrieval-events";
 
 const root = mkdtempSync(join(tmpdir(), "gudy-memory-context-"));
@@ -20,14 +20,14 @@ assert.ok(!JSON.stringify(index.nodes).includes("SENTINELA_NO_FIM"));
 assert.deepEqual(mentionedMemories("E o BETO?", index.nodes), [path]);
 assert.deepEqual(mentionedMemories("betoticamente", index.nodes), []);
 assert.deepEqual(mentionedMemories("Betinho", index.nodes), [path]);
-const low: EvaluateJev = async (state, questions) => {
-  assert.ok(!("memoryIndex" in (state as object)), "Jev não recebe o catálogo completo");
+const low: EvaluateDecisions = async (state, questions) => {
+  assert.ok(!("memoryIndex" in (state as object)), "Decisions não recebe o catálogo completo");
   assert.ok(JSON.stringify(state).length < 1000, "estado de triagem fica pequeno");
   return Object.fromEntries(Object.keys(questions).map((key) => [key, .1]));
 };
 const trace: RetrievalEvent[] = [];
 let inspections = 0;
-const conversation = new JevConversation({ browser, evaluate: low,
+const conversation = new MemoryConversation({ browser, evaluate: low,
   inspect: async (request) => {
     inspections++;
     assert.deepEqual(request.outputSchema, MEMORY_INSPECTION_SCHEMA);
@@ -69,7 +69,7 @@ assert.ok(!JSON.stringify(trace).includes("SENTINELA_NO_FIM"));
 
 // Mesmo com triagem negativa, o conversador pode localizar e pedir um registro.
 let count = 0;
-const secondLook = new JevConversation({ browser, evaluate: low, inspect: async () => JSON.stringify({ paths: count++ === 0 ? [path] : [] }), answer: async (request) => {
+const secondLook = new MemoryConversation({ browser, evaluate: low, inspect: async () => JSON.stringify({ paths: count++ === 0 ? [path] : [] }), answer: async (request) => {
   assert.equal(JSON.parse(request.input).memory.files[0].content, content); return "Contexto recuperado.";
 } });
 await secondLook.run("Pode conferir esse detalhe?");
@@ -77,11 +77,11 @@ assert.equal(secondLook.lastRetrieval?.searched, true);
 assert.equal(secondLook.lastRetrieval?.probability, .1);
 
 let answered = false;
-const invalid = new JevConversation({ browser, evaluate: low, inspect: async () => '{"paths":["../segredo.md"]}', answer: async () => { answered = true; return "Não executar"; } });
+const invalid = new MemoryConversation({ browser, evaluate: low, inspect: async () => '{"paths":["../segredo.md"]}', answer: async () => { answered = true; return "Não executar"; } });
 await assert.rejects(invalid.run("oi"), /inválida/);
 assert.equal(answered, false);
 assert.equal(invalid.history.length, 0);
-const malformed = new JevConversation({ browser, evaluate: low, inspect: async () => "Você e o usuário fazem parte de um grupo privado.", answer: async () => { throw new Error("Não responder após plano inválido"); } });
+const malformed = new MemoryConversation({ browser, evaluate: low, inspect: async () => "Você e o usuário fazem parte de um grupo privado.", answer: async () => { throw new Error("Não responder após plano inválido"); } });
 await assert.rejects(malformed.run("Que grupo?"), (error: Error) => {
   assert.ok(error.message.includes("formato inválido"));
   assert.ok(!error.message.includes("grupo privado") && !error.message.includes("Unexpected token"));
@@ -104,7 +104,7 @@ const scopedNodes = [
 const projects = Array.from({ length: 30 }, (_, i) => ({ path: `projetos/item-${i}.md`, kind: "file" as const, title: `Item ${i}`, description: "Registro fictício" }));
 const people = Array.from({ length: 80 }, (_, i) => ({ path: `social/pessoa-${i}.md`, kind: "file" as const, title: `Pessoa ${i}`, description: "Registro fictício" }));
 let locatorRounds = 0;
-const progressive = new JevConversation({
+const progressive = new MemoryConversation({
   browser: { list: (folder) => folder === "" ? scopedNodes : folder === "social" ? people : projects,
     read: (file) => `Documento integral de ${file}` }, evaluate: low,
   inspect: async (request) => {
@@ -135,7 +135,7 @@ const progressive = new JevConversation({
 await progressive.run("Pode conferir um registro específico?");
 assert.equal(locatorRounds, 4, "localizador amplia somente as pastas e consultas solicitadas");
 const cancelled = new AbortController();
-const cancellation = new JevConversation({ browser, evaluate: low, inspect: async () => { cancelled.abort(); return '{"paths":[]}'; }, answer: async () => { throw new Error("não responder"); } });
+const cancellation = new MemoryConversation({ browser, evaluate: low, inspect: async () => { cancelled.abort(); return '{"paths":[]}'; }, answer: async () => { throw new Error("não responder"); } });
 await assert.rejects(cancellation.run("oi", { signal: cancelled.signal }), { name: "AbortError" });
 assert.equal(cancellation.history.length, 0);
 console.log("✓ Contexto vivo: apelidos, triagem negativa, consulta adicional, arquivo integral >60 mil caracteres, seção final, isolamento de caminhos, cancelamento e eventos sem conteúdo privado.");

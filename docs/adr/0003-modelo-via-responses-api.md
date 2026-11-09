@@ -4,6 +4,9 @@
 
 **Data:** 2026-09-30
 
+Evolução: o [ADR 0005](0005-selecao-memoria-via-decisions.md) migra os julgamentos
+Jev para Decisions. A autenticação e a geração Responses deste ADR permanecem.
+
 ## Contexto
 
 O Gudman orquestra conversa, recuperação Jev, carregamento de documentos e

@@ -7,7 +7,7 @@ import { ChatGPTAuth, type ChatGPTAuthData } from "../core/chatgpt-auth";
 import { ProtectedAuthStore, type AuthStore } from "../core/protected-store";
 import { createResponsesProvider, responsesBody } from "../core/responses";
 import { OpenAIRequestError } from "../core/openai-errors";
-import { JevConversation } from "../agents/conversante/jev-conversation";
+import { MemoryConversation } from "../agents/conversante/memory-conversation";
 
 // Somente fixtures sintéticas e HTTP simulado. Não abre contas nem lê memória pessoal.
 class MemoryStore implements AuthStore<ChatGPTAuthData> {
@@ -217,7 +217,7 @@ const sparseChunks: string[] = [];
 assert.equal(await sparseProvider({ ...request, onContent: (chunk) => sparseChunks.push(chunk) }), "OK");
 assert.deepEqual(sparseChunks, ["O", "K"], "Texto já transmitido não é repetido na conclusão");
 assert.ok(!JSON.stringify(sparseDiagnostics).includes('"text"') && !JSON.stringify(sparseDiagnostics).includes("Bearer"), "Diagnóstico contém apenas metadados");
-const sparseAgent = new JevConversation({ answer: sparseProvider, inspect: async () => '{"paths":[],"folders":[],"query":""}', evaluate: async () => ({ search: 0 }), browser: { list: () => [], read: () => "" } });
+const sparseAgent = new MemoryConversation({ answer: sparseProvider, inspect: async () => '{"paths":[],"folders":[],"query":""}', evaluate: async () => ({ search: 0 }), browser: { list: () => [], read: () => "" } });
 assert.equal(await sparseAgent.run("Olá"), "OK");
 assert.equal(sparseAgent.history.at(-1)?.content, "OK", "Turno completo chega ao histórico do conversador");
 const sparseStructured = createResponsesProvider({ accessToken: async () => "synthetic", fetch: async () => streamResponse([
@@ -275,7 +275,7 @@ events = [{ type: "response.output_text.delta", delta: "parcial" }];
 await assert.rejects(provider(request), /sem confirmar/);
 events.push({ type: "response.failed", response: { error: { code: "subscription_sharing_usage_limit_exceeded", message: "Não expor synthetic-access" } } });
 await assert.rejects(provider(request), (error: unknown) => error instanceof OpenAIRequestError && error.status === 429 && !error.message.includes("synthetic-access"));
-const agent = new JevConversation({ answer: provider, inspect: async () => '{"paths":[],"folders":[],"query":""}', evaluate: async () => ({ search: 0 }), browser: { list: () => [], read: () => "" } });
+const agent = new MemoryConversation({ answer: provider, inspect: async () => '{"paths":[],"folders":[],"query":""}', evaluate: async () => ({ search: 0 }), browser: { list: () => [], read: () => "" } });
 await assert.rejects(agent.run("Pergunta sintética"));
 assert.equal(agent.history.length, 0, "Resposta parcial com falha não entra no histórico");
 for (const event of [{ type: "response.incomplete" }, { type: "response.refusal.delta", delta: "não" }, { type: "response.output_item.added", item: { type: "function_call" } }]) {

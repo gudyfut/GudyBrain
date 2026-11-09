@@ -7,8 +7,8 @@ import { ensureEnvironment, REPO_ROOT } from "./paths";
 
 export interface PublicSettings {
   readonly automation: { transcribe: boolean; analyzeRequested: boolean; analyzeEffective: boolean };
-  readonly integrations: { glm: boolean; groq: boolean; discord: boolean; typesafe: boolean };
-  readonly chat: { mode: "jev" | "legacy"; model: string };
+  readonly integrations: { glm: boolean; groq: boolean; discord: boolean; openaiApi: boolean };
+  readonly chat: { mode: "decisions" | "legacy"; model: string };
   readonly agents: ReadonlyArray<{ id: string; name: string; model: string; responsibility: string }>;
 }
 
@@ -16,24 +16,24 @@ export function getPublicSettings(): PublicSettings {
   ensureEnvironment();
   const transcribe = enabled(process.env.DISCORDBOT_AUTO_TRANSCRIBE, true);
   const analyzeRequested = enabled(process.env.DISCORDBOT_AUTO_ANALYZE, false);
-  const jev = memoryChatEnabled();
-  const model = jev ? process.env.OPENAI_MODEL?.trim() || MEMORY_CHAT_PROFILES.answer.model : AGENT_PROFILES.conversante.model;
+  const decisions = memoryChatEnabled();
+  const model = decisions ? process.env.OPENAI_MODEL?.trim() || MEMORY_CHAT_PROFILES.answer.model : AGENT_PROFILES.conversante.model;
   return {
     automation: { transcribe, analyzeRequested, analyzeEffective: transcribe && analyzeRequested },
-    chat: { mode: jev ? "jev" : "legacy", model },
+    chat: { mode: decisions ? "decisions" : "legacy", model },
     integrations: {
       glm: Boolean(process.env.GLM_API_KEY?.trim()),
       groq: Boolean(process.env.GROQ_API_KEY?.trim()),
       discord: Boolean(process.env.DISCORDBOT_API_KEY?.trim()),
-      typesafe: Boolean(process.env.TYPESAFE_API_KEY?.trim()),
+      openaiApi: Boolean(process.env.GPT_API_KEY?.trim()),
     },
-    agents: [{ id: "curador-chat", name: "Curadoria Jev + Responses API", model: process.env.OPENAI_MODEL?.trim() || MEMORY_CHAT_PROFILES.curation.model, responsibility: "Extrair fatos com evidências, selecionar com Jev e preparar propostas para revisão." }, ...Object.values(AGENT_PROFILES).filter((profile) => !jev || profile.id !== "conversante").map((profile) => ({
+    agents: [{ id: "curador-chat", name: "Curadoria Decisions + Responses API", model: process.env.OPENAI_MODEL?.trim() || MEMORY_CHAT_PROFILES.curation.model, responsibility: "Extrair fatos com evidências, selecionar com Decisions e preparar propostas para revisão." }, ...Object.values(AGENT_PROFILES).filter((profile) => !decisions || profile.id !== "conversante").map((profile) => ({
       id: profile.id,
       name: profile.nome,
       model: profile.model,
       responsibility: profile.responsabilidade,
-    })), ...(jev ? [
-      { id: "recuperador-jev", name: "Jev", model: process.env.JEV_MODEL?.trim() || MEMORY_CHAT_PROFILES.retrieval.model, responsibility: "Decidir quando buscar e selecionar os arquivos de memória." },
+    })), ...(decisions ? [
+      { id: "recuperador-decisions", name: "Decisions API", model: MEMORY_CHAT_PROFILES.retrieval.model, responsibility: "Decidir quando buscar e selecionar os arquivos de memória." },
       { id: "resposta-memoria", name: "Gudman / Responses API", model, responsibility: "Responder com o contexto selecionado, usando o plano ChatGPT pela Responses API." },
     ] : [])],
   };

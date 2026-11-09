@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Message } from "@gudybrain/core/glm";
 import { chatGPTAuth } from "@gudybrain/core/chatgpt-auth";
 import { answerWithResponses } from "@gudybrain/core/responses";
-import { JevConversation } from "@gudybrain/agents/conversante/jev-conversation";
+import { MemoryConversation } from "@gudybrain/agents/conversante/memory-conversation";
 import { memoryChatEnabled } from "@gudybrain/agents/registry";
 import { claimVoiceSession, finishVoiceSession } from "./chat";
 import { ensureEnvironment, requireSecret } from "./paths";
@@ -19,9 +19,8 @@ const runtime: LiveRuntime = globalRuntime.__gudyLiveRuntime ??= { sessions: new
 
 export async function startLive(chatId: string, sdp: string, signal: AbortSignal) {
   ensureEnvironment();
-  if (!memoryChatEnabled()) throw new LiveError("A conversa ao vivo exige CHAT_MODE=jev.", 400);
+  if (!memoryChatEnabled()) throw new LiveError("A conversa ao vivo exige CHAT_MODE=decisions.", 400);
   const apiKey = requireSecret("GPT_API_KEY");
-  requireSecret("TYPESAFE_API_KEY");
   const voice = process.env.GPT_LIVE_VOICE?.trim() || "marin";
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(voice)) throw new LiveError("GPT_LIVE_VOICE deve ser o nome de uma voz do GPT-Live.", 400);
   const idleMs = configSeconds("GPT_LIVE_IDLE_SECONDS", 90, 15, 300) * 1000;
@@ -46,7 +45,7 @@ export async function startLive(chatId: string, sdp: string, signal: AbortSignal
       query: async (input, context, taskSignal, onStep) => {
         const combined = AbortSignal.any([taskSignal, chatGPTAuth.sessionSignal(), AbortSignal.timeout(90_000)]);
         await chatGPTAuth.accessToken(combined);
-        const agent = new JevConversation({ answer: (request) => answerWithResponses({ ...request,
+        const agent = new MemoryConversation({ answer: (request) => answerWithResponses({ ...request,
           instructions: request.instructions + "\nA resposta será falada. Seja conciso, de preferência até 100 palavras. Preserve ressalvas e não omita fatos necessários. Não use tabelas ou blocos de código." }) });
         agent.history.push(...context.map((message) => ({ ...message })));
         return agent.run(input, { signal: combined, onStep });

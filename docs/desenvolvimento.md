@@ -26,7 +26,8 @@ usando `.next`. Use um checkout separado ou encerre o servidor antes.
 | Schema, IDs, modelos e acervo local, quando existir | `npm run check:memory` |
 | Análise de calls | `npm run check:calls` |
 | Aprovação e aplicação na web | `npm run check:curation` |
-| Recuperação Jev | `npm run check:retrieval` |
+| Recuperação Decisions | `npm run check:retrieval` |
+| Contratos HTTP Decisions, recusas e cancelamento | `npm run check:decisions` |
 | Escrita contratual | `npm run check:writing` |
 | Seleção de fatos do chat | `npm run check:selection` |
 | Inspeção e leitura integral de contexto | `npm run check:context` |
@@ -60,7 +61,7 @@ Execute somente quando quiser testar a integração ou medir desempenho:
 | --- | --- |
 | `npm run smoke:api` | GLM |
 | `npm run smoke:responses` | ChatGPT via Responses API |
-| `npm run benchmark:chat` | Jev e GPT, com memória fictícia |
+| `npm run benchmark:chat` | Decisions e GPT, com memória fictícia |
 
 Esses comandos usam credenciais e cotas reais e não integram `npm test`.
 

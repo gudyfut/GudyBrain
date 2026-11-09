@@ -13,14 +13,14 @@ npm ci
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Preencha `TYPESAFE_API_KEY` no `.env`, execute `npm start` e abra
+Preencha `GPT_API_KEY` no `.env`, execute `npm start` e abra
 **http://127.0.0.1:3000**. Em **Configurações**, conecte sua conta com
 **Continue with ChatGPT** e escolha um modelo disponível. O padrão configurado
 é `gpt-6-luna`.
 
-Jev seleciona memória; a Responses API gera texto com o plano ChatGPT autorizado.
-O chat de texto não exige instalar Codex nem fornecer chave OpenAI. Para a
-conversa ao vivo, preencha `GPT_API_KEY`; voz e calls têm credenciais próprias. Veja [configuração](docs/configuracao.md).
+Decisions seleciona memória com `GPT_API_KEY`; a Responses API gera texto com
+o plano ChatGPT autorizado. GPT-Live usa a mesma API key para a voz. Não é
+necessário instalar Codex. Veja [configuração](docs/configuracao.md).
 
 ## O que você pode fazer
 
@@ -69,7 +69,7 @@ O servidor é de uso local e individual; veja [segurança e privacidade](SECURIT
 O [índice de guias](docs/README.md) reúne os caminhos de leitura.
 
 - [Configuração](docs/configuracao.md) · [Interface web](docs/interface-web.md)
-- [Busca Jev](docs/jev-memory.md) · [Voz](docs/voice-chat.md)
+- [Busca Decisions](docs/decisions-memory.md) · [Voz](docs/voice-chat.md)
 - [Estrutura da memória](docs/estrutura-memoria.md) · [Seleção e escrita](docs/memory-writing.md)
 - [Calls](docs/calls.md) · [Instalação do bot](discordbot/README.md)
 - [Desenvolvimento](docs/desenvolvimento.md) · [Arquitetura](docs/arquitetura-agentes.md)

@@ -12,8 +12,26 @@ writeFileSync(join(root, "package.json"), "{}");
 writeFileSync(join(root, "discordbot", "pyproject.toml"), "");
 cpSync(resolve(import.meta.dirname, "../../../src/agents"), join(root, "src/agents"), { recursive: true });
 process.env.GUDYBRAIN_ROOT = root;
-process.env.TYPESAFE_API_KEY = "synthetic-test-key";
-process.env.CHAT_MODE = "jev";
+process.env.GPT_API_KEY = "synthetic-test-key";
+process.env.CHAT_MODE = "decisions";
+process.env.OPENAI_MODEL = "gpt-6-luna";
+
+const { getPublicSettings } = await import("../server/settings");
+process.env.OPENAI_MODEL = "synthetic-responses-model";
+process.env.CHAT_MODE = "jev"; // Compatibility must select Decisions, never TypeSafe.
+process.env.TYPESAFE_API_KEY = "obsolete-synthetic-key";
+let settings = getPublicSettings();
+assert.equal(settings.chat.mode, "decisions");
+assert.equal(settings.chat.model, "synthetic-responses-model");
+assert.equal(settings.agents.find((agent) => agent.id === "recuperador-decisions")?.model, "gpt-6-luna");
+assert.equal(settings.integrations.openaiApi, true);
+assert.equal("typesafe" in settings.integrations, false);
+assert.ok(!JSON.stringify(settings).includes("synthetic-test-key"));
+delete process.env.GPT_API_KEY;
+settings = getPublicSettings();
+assert.equal(settings.integrations.openaiApi, false, "uma chave TypeSafe antiga não configura Decisions");
+process.env.GPT_API_KEY = "synthetic-test-key";
+process.env.CHAT_MODE = "decisions";
 process.env.OPENAI_MODEL = "gpt-6-luna";
 
 const { createChatSession, getChatSession, claimVoiceSession, finishVoiceSession, chatHistory, runChat, deleteChatSession } = await import("../server/chat");
@@ -35,4 +53,4 @@ finishVoiceSession(session.id, "voice-owner", [{ role: "assistant", content: "Du
 assert.equal(chatHistory(session.id).length, 4, "fechamento duplicado não duplica histórico");
 deleteChatSession(session.id);
 assert.throws(() => getChatSession(session.id));
-console.log("✓ GPT-Live/chat: posse exclusiva, bloqueio de texto/curadoria/exclusão e incorporação idempotente de legendas.");
+console.log("✓ GPT-Live/chat: configuração Decisions, modelos independentes, posse exclusiva, bloqueio de texto/curadoria/exclusão e incorporação idempotente de legendas.");

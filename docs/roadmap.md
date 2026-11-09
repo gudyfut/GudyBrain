@@ -6,7 +6,7 @@ entregues nem compromissos de prazo. O estado atual está na
 
 ## Recuperação e curadoria
 
-- Calibrar limiares Jev com perguntas e conversas rotuladas.
+- Calibrar limiares Decisions com perguntas e conversas rotuladas.
 - Medir fatos úteis perdidos, identidade incorreta, duplicatas e contradições.
 - Melhorar recuperação de referências ambíguas mantendo contexto compacto.
 - Avaliar índices semânticos somente quando descrições, busca textual e links

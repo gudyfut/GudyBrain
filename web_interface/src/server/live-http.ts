@@ -36,7 +36,7 @@ export function validId(value: string): boolean { return /^[a-zA-Z0-9_-]{1,128}$
 export function liveErrorResponse(error: unknown): Response {
   if (error instanceof LiveError) return Response.json({ error: error.message }, { status: error.status });
   // Known local configuration errors are safe; provider response bodies are not.
-  const message = error instanceof Error && /^(GPT_API_KEY|TYPESAFE_API_KEY) não está configurada/.test(error.message)
+  const message = error instanceof Error && /^GPT_API_KEY não está configurada/.test(error.message)
     ? error.message : "Não foi possível iniciar a voz. Confira as credenciais e a conexão ChatGPT em Configurações.";
   return Response.json({ error: message }, { status: 503 });
 }

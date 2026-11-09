@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { parseFacts, selectChatMemories } from "../agents/curador-chat/selection";
-import { createJevChoiceClient, type EvaluateJev, type ChooseJev } from "../core/jev";
+import { createDecisionsClient, createDecisionsChoiceClient, type EvaluateDecisions, type ChooseDecision } from "../core/decisions";
 import type { AnswerProvider } from "../core/llm";
 import { preencherDocumentoCandidato } from "../tools/memoria/preencher";
 import { montarPreviaMemoria } from "../tools/memoria/documento-editavel";
@@ -15,8 +15,8 @@ assert.throws(() => parseFacts(JSON.stringify({ complete: false, facts: [] }), h
 assert.throws(() => parseFacts(JSON.stringify({ complete: true, facts: [{ ...fact, evidence: [{ messageId: "msg_1", quote: history[1]!.content }] }] }), history), /Citação/);
 assert.throws(() => parseFacts(JSON.stringify({ complete: true, facts: [{ ...fact, evidence: [{ messageId: "msg_0", quote: "inventada" }] }] }), history), /Citação/);
 
-const evaluate: EvaluateJev = async (_state, questions, signal) => { signal?.throwIfAborted(); return Object.fromEntries(Object.keys(questions).map((key) => [key, key === "duplicate" || key === "contradiction" ? .01 : .99])); };
-const choose: ChooseJev = async (_state, _instructions, criteria) => ({ choice: "Pessoa" in criteria ? "Pessoa" : "Interesses", confidence: .99 });
+const evaluate: EvaluateDecisions = async (_state, questions, signal) => { signal?.throwIfAborted(); return Object.fromEntries(Object.keys(questions).map((key) => [key, key === "duplicate" || key === "contradiction" ? .01 : .99])); };
+const choose: ChooseDecision = async (_state, _instructions, criteria) => ({ choice: "Pessoa" in criteria ? "Pessoa" : "Interesses", confidence: .99 });
 const answer: AnswerProvider = async (request) => JSON.parse(request.input).stage === "extract" ? json : JSON.stringify({ item: { tipo: "interesse", nome: "Xadrez", detalhe: "joga semanalmente" }, frontmatter: {} });
 const base = { history, model: "fake", instructions: "fake", answer, evaluate, choose, catalog: [] as EntradaCatalogoMemoria[], read: () => { throw new Error("Não ler disco"); } };
 const created = await selectChatMemories(base);
@@ -25,6 +25,31 @@ assert.equal(created.candidates[0]?.path, "social/pessoas/ana.md");
 assert.ok(created.candidates[0]?.corpo.includes("**Xadrez**"));
 assert.ok(created.candidates[0]?.evidencias[0]?.includes("msg_0"));
 assert.equal(created.decisions[0]?.status, "proposta");
+// Exercise the real HTTP adapters through the complete curation pipeline.
+let decisionRequests = 0;
+const fetchDecisions: typeof fetch = async (url, init) => {
+  assert.equal(url, "https://api.openai.com/v1/decisions");
+  decisionRequests++;
+  const body = JSON.parse(String(init?.body));
+  const state = JSON.parse(body.input);
+  if (body.questions[0].type === "choice") {
+    const q = body.questions[0];
+    const criteria = Object.fromEntries(q.choices.map((c: { value: string; description: string }) => [c.value, c.description]));
+    const result = await choose(state, q.instructions, criteria);
+    return Response.json({ answers: [{ name: q.name, type: "choice", ...result,
+      probabilities: q.choices.map((c: { value: string }) => ({ value: c.value, probability: c.value === result.choice ? 1 : 0 })) }] });
+  }
+  const questions = Object.fromEntries(body.questions.map((q: { name: string; instructions: string }) => [q.name, { type: "predicate" as const, instructions: q.instructions }]));
+  const values = await evaluate(state, questions);
+  return Response.json({ answers: body.questions.map((q: { name: string }) => ({ name: q.name, type: "predicate", probability: values[q.name] })) });
+};
+const apiCuration = await selectChatMemories({ ...base, evaluate: createDecisionsClient({ apiKey: "fake", fetch: fetchDecisions }),
+  choose: createDecisionsChoiceClient({ apiKey: "fake", fetch: fetchDecisions }) });
+assert.deepEqual(apiCuration, created);
+assert.equal(decisionRequests, 4, "sustentação, tipo, seção e fidelidade passam pela Decisions API");
+await assert.rejects(selectChatMemories({ ...base, evaluate: createDecisionsClient({ apiKey: "fake", fetch: async () => Response.json({
+  answers: ["supported", "attributed", "useful"].map((name) => ({ name, type: "refusal" })),
+}) }) }), /recusou/);
 const eventHistory = [{ role: "user" as const, content: "Houve uma reunião do projeto Jardim." }];
 const eventFact = { subject: "Reunião do Jardim", text: eventHistory[0]!.content,
   evidence: [{ messageId: "msg_0", quote: eventHistory[0]!.content }] };
@@ -35,7 +60,7 @@ const eventBase = { ...base, history: eventHistory,
   choose: (async (_state, _instructions, criteria) => ({
     choice: "Evento" in criteria ? "Evento" : "Contexto" in criteria ? "Contexto" : "eventos/projetos",
     confidence: .99,
-  })) as ChooseJev,
+  })) as ChooseDecision,
   browseFolders: (folder: string) => folder === "eventos" ? [
     { path: "eventos/convivencia", kind: "folder" as const, title: "Convivência", description: "Encontros sociais" },
     { path: "eventos/projetos", kind: "folder" as const, title: "Projetos", description: "Reuniões de trabalho" },
@@ -83,10 +108,4 @@ const uncertainAlias = await selectChatMemories({ ...aliases, evaluate: async (.
 assert.equal(uncertainAlias.decisions[1]?.status, "ambigua");
 await assert.rejects(selectChatMemories({ ...existing, catalog: [entry, { ...entry, path: "social/pessoas/outra.md" }] }), /duplicados/);
 
-const client = createJevChoiceClient({ apiKey: "fake", model: "fake", fetch: (async (_url, init) => {
-  const body = JSON.parse(String(init?.body)); assert.equal(body.questions.route.type, "choice");
-  return Response.json({ answers: { route: { type: "choice", choice: "Pessoa", confidence: .8, probabilities: { Pessoa: .9, nenhuma: .1 } } } });
-}) as typeof fetch });
-assert.equal((await client({}, "tipo?", { Pessoa: "Indivíduo", nenhuma: "nenhuma" })).choice, "Pessoa");
-await assert.rejects(client({}, "tipo?", { Lugar: "Local" }), /inválida/);
 console.log("✓ Curadoria de chat: citações, seleção, abstenções, identidade, novidade, contradição, agrupamento, revisão-base, falhas e Choice (sem API ou memória pessoal).");

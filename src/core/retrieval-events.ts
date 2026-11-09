@@ -9,7 +9,7 @@ export interface RetrievalNodeEvent {
   aliases?: string[];
   description?: string;
   chars?: number;
-  source?: "jev" | "conversador" | "identity";
+  source?: "decisions" | "conversador" | "identity";
 }
 export type RetrievalEvent =
   | { phase: "gate" }
@@ -18,7 +18,7 @@ export type RetrievalEvent =
   | { phase: "folder"; path: string }
   | { phase: "discovered"; parent: string; nodes: RetrievalNodeEvent[] }
   | { phase: "evaluated"; parent: string; nodes: RetrievalNodeEvent[] }
-  | { phase: "selected"; path: string; chars?: number; source?: "jev" | "conversador" | "identity" }
+  | { phase: "selected"; path: string; chars?: number; source?: "decisions" | "conversador" | "identity" }
   | { phase: "request"; paths: string[]; round: number }
   | { phase: "omitted"; path: string; reason: string }
   | { phase: "complete"; files: number; limited: boolean }

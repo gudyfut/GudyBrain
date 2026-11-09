@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createJevClient, type EvaluateJev } from "../core/jev";
+import { type EvaluateDecisions } from "../core/decisions";
 import { MemoryBrowser } from "../tools/memoria/navegador";
-import { retrieveMemory } from "../agents/recuperador-jev";
-import { JevConversation } from "../agents/conversante/jev-conversation";
+import { retrieveMemory } from "../agents/recuperador-decisions";
+import { MemoryConversation } from "../agents/conversante/memory-conversation";
 
-const root = mkdtempSync(join(tmpdir(), "gudy-jev-test-"));
-const external = mkdtempSync(join(tmpdir(), "gudy-jev-external-"));
+const root = mkdtempSync(join(tmpdir(), "gudy-decisions-test-"));
+const external = mkdtempSync(join(tmpdir(), "gudy-decisions-external-"));
 try {
   mkdirSync(join(root, "social", "pessoas"), { recursive: true });
   mkdirSync(join(root, "projetos"));
@@ -32,11 +32,11 @@ try {
 
   const history = [{ role: "user" as const, content: "Quero falar sobre Ana." }, { role: "assistant" as const, content: "O que deseja saber?" }];
   const visited: string[] = [];
-  const evaluate: EvaluateJev = async (state, questions, signal) => {
+  const evaluate: EvaluateDecisions = async (state, questions, signal) => {
     signal?.throwIfAborted();
     assert.deepEqual((state as { history: unknown }).history, history);
     assert.equal((state as { message: string }).message, "Onde ela trabalha?");
-    assert.ok(!JSON.stringify(questions).includes("CORPO_SECRETO"), "Corpos não devem ser enviados ao Jev nesta seleção por metadados");
+    assert.ok(!JSON.stringify(questions).includes("CORPO_SECRETO"), "Corpos não devem ser enviados à Decisions API nesta seleção por metadados");
     return Object.fromEntries(Object.entries(questions).map(([key, question]) => {
       const node = (question.instructions as { node?: { path: string } }).node;
       if (node) visited.push(node.path);
@@ -44,6 +44,37 @@ try {
     }));
   };
   const base = { input: "Onde ela trabalha?", history, instructions: "teste", browser, evaluate };
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.GPT_API_KEY;
+  const previousAnswerModel = process.env.OPENAI_MODEL;
+  try {
+    process.env.GPT_API_KEY = "synthetic-decisions-key";
+    process.env.OPENAI_MODEL = "synthetic-responses-model";
+    let requests = 0;
+    globalThis.fetch = async (url, init) => {
+      assert.equal(url, "https://api.openai.com/v1/decisions", "nenhuma chamada ao provedor antigo");
+      assert.equal((init?.headers as Record<string, string>).Authorization, "Bearer synthetic-decisions-key");
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.model, "gpt-6-luna", "modelo Decisions é independente do modelo Responses");
+      requests++;
+      const parsed = Object.fromEntries(body.questions.map((q: { name: string; instructions: string }) => [q.name, { type: "predicate" as const, instructions: JSON.parse(q.instructions) }]));
+      const values = await evaluate(JSON.parse(body.input), parsed);
+      return Response.json({ answers: body.questions.map((q: { name: string }) => ({ name: q.name, type: "predicate", probability: values[q.name] })) });
+    };
+    const agent = new MemoryConversation({ browser, inspect: async () => '{"paths":[],"folders":[],"query":""}', answer: async (request) => {
+      assert.equal(request.model, "synthetic-responses-model");
+      assert.ok(JSON.parse(request.input).memory.files.some((file: { path: string }) => file.path === "social/pessoas/ana.md"));
+      return "Resposta fictícia com memória.";
+    } });
+    agent.history.push(...history);
+    await agent.run("Onde ela trabalha?");
+    assert.ok(requests >= 2, "triagem e navegação usam o adaptador padrão");
+    assert.equal(agent.history.at(-1)?.content, "Resposta fictícia com memória.");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.GPT_API_KEY; else process.env.GPT_API_KEY = previousKey;
+    if (previousAnswerModel === undefined) delete process.env.OPENAI_MODEL; else process.env.OPENAI_MODEL = previousAnswerModel;
+  }
   const selected = await retrieveMemory(base);
   assert.equal(selected.searched, true);
   assert.deepEqual(selected.files.map((file) => file.path), ["social/pessoas/ana.md"]);
@@ -84,28 +115,8 @@ try {
   const canceled = new AbortController(); canceled.abort();
   await assert.rejects(retrieveMemory({ ...base, signal: canceled.signal }), { name: "AbortError" });
 
-  let httpCalls = 0;
-  const client = createJevClient({ apiKey: "fake", model: "jev-latest", fetch: (async (_url, init) => {
-    httpCalls++;
-    const body = JSON.parse(String(init?.body));
-    assert.equal(body.model, "jev-latest");
-    assert.equal(body.questions.search.type, "noul");
-    assert.equal((init?.headers as Record<string, string>).Authorization, "Bearer fake");
-    return Response.json({ answers: { search: { type: "noul", noul: 0.7 } } });
-  }) as typeof fetch });
-  assert.deepEqual(await client({}, { search: { type: "noul", instructions: "buscar?" } }), { search: 0.7 });
-  assert.equal(httpCalls, 1);
-  for (const bad of [{}, { answers: {} }, { answers: { search: { type: "noul", noul: 2 } } }, { answers: { search: { type: "choice", noul: 0.7 } } }]) {
-    const invalid = createJevClient({ apiKey: "fake", model: "jev-latest", fetch: (async () => Response.json(bad)) as typeof fetch });
-    await assert.rejects(invalid({}, { search: { type: "noul", instructions: "?" } }), /inválida|inválido/);
-  }
-  const denied = createJevClient({ apiKey: "fake", model: "jev-latest", fetch: (async () => new Response("secret-echo", { status: 401 })) as typeof fetch });
-  await assert.rejects(denied({}, { search: { type: "noul", instructions: "?" } }), (error: Error) => error.message.includes("401") && !error.message.includes("secret-echo"));
-  const missing = createJevClient({ apiKey: "", model: "jev-latest", fetch: (async () => { throw new Error("não chamar"); }) as typeof fetch });
-  await assert.rejects(missing({}, {}), /TYPESAFE_API_KEY/);
-
   const progress: string[] = [];
-  const conversation = new JevConversation({ inspect: async () => '{"paths":[]}', evaluate, browser, answer: async (request) => {
+  const conversation = new MemoryConversation({ inspect: async () => '{"paths":[]}', evaluate, browser, answer: async (request) => {
     const payload = JSON.parse(request.input);
     assert.deepEqual(payload.history, history);
     assert.equal(payload.message, "Onde ela trabalha?");
@@ -123,13 +134,13 @@ try {
   assert.equal(streamed, "Ela trabalha com botânica.");
   assert.equal(conversation.history.length, 4);
   assert.ok(progress.length >= 3);
-  const failure = new JevConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => { throw new Error("offline"); }, browser, answer: async () => { throw new Error("não chamar"); } });
+  const failure = new MemoryConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => { throw new Error("offline"); }, browser, answer: async () => { throw new Error("não chamar"); } });
   await assert.rejects(failure.run("oi"), /offline/);
   assert.equal(failure.history.length, 0);
-  const answerFailure = new JevConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => ({ search: 0 }), browser, answer: async () => { throw new Error("cota"); } });
+  const answerFailure = new MemoryConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => ({ search: 0 }), browser, answer: async () => { throw new Error("cota"); } });
   await assert.rejects(answerFailure.run("oi"), /cota/);
   assert.equal(answerFailure.history.length, 0);
-  const noMemory = new JevConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => ({ search: 0 }), browser, answer: async (request) => {
+  const noMemory = new MemoryConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => ({ search: 0 }), browser, answer: async (request) => {
     assert.deepEqual(JSON.parse(request.input).memory.files, []); return "Olá!";
   } });
   await noMemory.run("oi");
@@ -137,7 +148,7 @@ try {
   assert.equal(noMemory.history.length, 0);
   let release!: () => void;
   const held = new Promise<void>((resolve) => { release = resolve; });
-  const concurrent = new JevConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => { await held; return { search: 0 }; }, browser, answer: async () => "Olá" });
+  const concurrent = new MemoryConversation({ inspect: async () => '{"paths":[]}', evaluate: async () => { await held; return { search: 0 }; }, browser, answer: async () => "Olá" });
   const pending = concurrent.run("oi");
   await assert.rejects(concurrent.run("outra"), /Aguarde/);
   release();
@@ -154,7 +165,7 @@ try {
   assert.equal(browser.list("eventos").find((node) => node.path === "eventos/reunioes")?.description, "Debates de projetos");
   assert.equal(browser.list("eventos/reunioes")[0]?.path, "eventos/reunioes/planejamento.md");
   assert.deepEqual(browser.list("pasta-ainda-inexistente"), []);
-  console.log("✓ Jev: triagem, navegação, contexto, limites, falhas, cancelamento, HTTP e isolamento de caminhos (fixtures locais, sem API).");
+  console.log("✓ Decisions: triagem, navegação, contexto, limites, falhas, cancelamento, HTTP e isolamento de caminhos (fixtures locais, sem API).");
 } finally {
   rmSync(root, { recursive: true, force: true });
   rmSync(external, { recursive: true, force: true });

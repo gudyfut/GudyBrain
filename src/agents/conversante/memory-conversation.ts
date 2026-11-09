@@ -1,11 +1,11 @@
 import { loadInstructions, type AgentEvent, type AgentRunOptions } from "../../core/agent";
 import { answerWithResponses } from "../../core/responses";
 import { configuredOpenAIModel, type AnswerProvider } from "../../core/llm";
-import { createJevClient, type EvaluateJev } from "../../core/jev";
+import { createDecisionsClient, type EvaluateDecisions } from "../../core/decisions";
 import type { Message } from "../../core/glm";
 import { resolveProjectPath } from "../../core/project-root";
 import { MemoryBrowser } from "../../tools/memoria/navegador";
-import { retrieveMemory, type RetrievalResult } from "../recuperador-jev";
+import { retrieveMemory, type RetrievalResult } from "../recuperador-decisions";
 import { MEMORY_CHAT_PROFILES } from "../registry";
 import { buildMemoryIndex, locateMemory, mentionedMemories } from "../../tools/memoria/indice-contexto";
 
@@ -18,12 +18,12 @@ export const MEMORY_INSPECTION_SCHEMA = {
   required: ["paths", "folders", "query"], additionalProperties: false,
 };
 
-export class JevConversation {
+export class MemoryConversation {
   readonly history: Message[] = [];
   readonly model: string;
   lastRetrieval?: RetrievalResult;
   private busy = false;
-  private readonly evaluate: EvaluateJev;
+  private readonly evaluate: EvaluateDecisions;
   private readonly answer: AnswerProvider;
   private readonly inspect: AnswerProvider;
   private readonly browser: Pick<MemoryBrowser, "list" | "read">;
@@ -33,15 +33,14 @@ export class JevConversation {
 
   constructor(private readonly options: {
     onStep?: (event: AgentEvent) => void;
-    evaluate?: EvaluateJev;
+    evaluate?: EvaluateDecisions;
     answer?: AnswerProvider;
     inspect?: AnswerProvider;
     browser?: Pick<MemoryBrowser, "list" | "read">;
   } = {}) {
     this.model = configuredOpenAIModel(MEMORY_CHAT_PROFILES.answer.model);
-    this.evaluate = options.evaluate ?? createJevClient({
-      apiKey: process.env.TYPESAFE_API_KEY ?? "",
-      model: process.env.JEV_MODEL?.trim() || MEMORY_CHAT_PROFILES.retrieval.model,
+    this.evaluate = options.evaluate ?? createDecisionsClient({
+      apiKey: process.env.GPT_API_KEY ?? "",
     });
     this.answer = options.answer ?? answerWithResponses;
     this.inspect = options.inspect ?? answerWithResponses;

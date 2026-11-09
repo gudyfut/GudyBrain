@@ -1,7 +1,7 @@
 import { configuredOpenAIModel } from "./llm";
 import { createResponsesProvider, type ResponsesDiagnostic } from "./responses";
 
-/** Diagnóstico explícito, sintético e sem Jev ou leitura de memória. Consome uso do plano. */
+/** Diagnóstico explícito, sintético e sem Decisions ou leitura de memória. Consome uso do plano. */
 export async function diagnoseResponses(structured = false, signal?: AbortSignal) {
   const diagnostics: ResponsesDiagnostic[] = [];
   const started = Date.now();

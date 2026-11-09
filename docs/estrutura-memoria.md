@@ -33,7 +33,7 @@ memory/
 Esta árvore é ilustrativa. Use [os modelos](../memory-template/index.md) para
 começar. Crie subpastas quando houver grupos reconhecíveis de documentos e
 escreva um `index.md` curto explicando o escopo de cada ramificação. Uma boa
-descrição ajuda Jev a escolher a pasta sem receber todos os arquivos.
+descrição ajuda Decisions a escolher a pasta sem receber todos os arquivos.
 
 A recuperação descobre a árvore existente; os nomes das subcategorias são
 livres. A **escrita**, porém, exige que cada tipo permaneça em sua pasta:
@@ -140,4 +140,4 @@ a grafia de exibição. Links no corpo são relativos à raiz do acervo, como
 
 `npm run check:memory` verifica o acervo local, quando existir, e os contratos.
 Para propostas, revisão e persistência, veja [seleção e escrita](memory-writing.md).
-Para limites da recuperação, veja [busca Jev](jev-memory.md).
+Para limites da recuperação, veja [busca Decisions](decisions-memory.md).

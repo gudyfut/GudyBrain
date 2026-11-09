@@ -1,17 +1,18 @@
 import { Agent, type AgentEvent } from "../core/agent";
 import { pipelineIdentitySuffix } from "./pipeline";
+import { DECISIONS_MODEL } from "../core/decisions";
 
-export type AgentId = "conversante" | "curador-chat" | "curador-call" | "analisador-call" | "recuperador-jev" | "resposta-memoria";
+export type AgentId = "conversante" | "curador-chat" | "curador-call" | "analisador-call" | "recuperador-decisions" | "resposta-memoria";
 
-/** Etapas sem tool-calling: Jev seleciona; Responses API pede leituras estruturadas e redige. */
+/** Etapas sem tool-calling: Decisions seleciona; Responses API pede leituras estruturadas e redige. */
 export const MEMORY_CHAT_PROFILES = {
   curation: {
     id: "curador-chat", model: "gpt-6-luna", provider: "responses-chatgpt",
     instructionsFile: "src/agents/curador-chat/instructions.md", allowedTools: [],
   },
   retrieval: {
-    id: "recuperador-jev", model: "jev-latest", provider: "typesafe",
-    instructionsFile: "src/agents/recuperador-jev/instructions.md",
+    id: "recuperador-decisions", model: DECISIONS_MODEL, provider: "decisions-api",
+    instructionsFile: "src/agents/recuperador-decisions/instructions.md",
     allowedTools: [],
   },
   answer: {
@@ -23,9 +24,11 @@ export const MEMORY_CHAT_PROFILES = {
 } as const;
 
 export function memoryChatEnabled(): boolean {
-  const mode = process.env.CHAT_MODE?.trim() || "jev";
-  if (mode !== "jev" && mode !== "legacy") throw new Error("CHAT_MODE deve ser jev ou legacy.");
-  return mode === "jev";
+  const mode = process.env.CHAT_MODE?.trim() || "decisions";
+  // Existing local .env files keep working; this alias never calls TypeSafe.
+  if (mode === "jev") return true;
+  if (mode !== "decisions" && mode !== "legacy") throw new Error("CHAT_MODE deve ser decisions ou legacy.");
+  return mode === "decisions";
 }
 
 export interface AgentProfile {

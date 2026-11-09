@@ -1,5 +1,5 @@
 import type { Message } from "../../core/glm";
-import type { EvaluateJev, JevQuestion } from "../../core/jev";
+import type { EvaluateDecisions, DecisionPredicate } from "../../core/decisions";
 import type { MemoryBrowser, MemoryNode } from "../../tools/memoria/navegador";
 import type { RetrievalEvent } from "../../core/retrieval-events";
 import { mentionedMemories, type MemoryIndex } from "../../tools/memoria/indice-contexto";
@@ -7,7 +7,7 @@ import { mentionedMemories, type MemoryIndex } from "../../tools/memoria/indice-
 export interface RetrievalResult {
   searched: boolean;
   probability: number;
-  files: Array<{ path: string; content: string; probability?: number; complete: true; source: "jev" | "identity" | "conversador" }>;
+  files: Array<{ path: string; content: string; probability?: number; complete: true; source: "decisions" | "identity" | "conversador" }>;
   omitted?: Array<{ path: string; reason: string }>;
   limited: boolean;
 }
@@ -31,7 +31,7 @@ export async function retrieveMemory(options: {
   input: string;
   history: readonly Message[];
   instructions: string;
-  evaluate: EvaluateJev;
+  evaluate: EvaluateDecisions;
   browser: Pick<MemoryBrowser, "list" | "read">;
   index?: MemoryIndex;
   limits?: Partial<RetrievalLimits>;
@@ -53,11 +53,11 @@ export async function retrieveMemory(options: {
       const node = options.index?.nodes.find((item) => item.path === path);
       return { path, title: node?.title, aliases: node?.aliases };
     }) };
-  const question = (text: string, node?: MemoryNode): JevQuestion => ({
-    type: "noul",
+  const question = (text: string, node?: MemoryNode): DecisionPredicate => ({
+    type: "predicate",
     instructions: { rules: options.instructions, question: text, ...(node ? { node } : {}) },
   });
-  options.onProgress?.("Jev está avaliando se precisa consultar a memória");
+  options.onProgress?.("Decisions está avaliando se precisa consultar a memória");
   options.onTrace?.({ phase: "gate" });
   if (options.index) options.onTrace?.({ phase: "index", chars: options.index.chars, nodes: options.index.nodes.map(({ path, kind, title, aliases, description }) => ({ path, kind, title, aliases, description })) });
   const gate = await options.evaluate(state, {
@@ -82,7 +82,7 @@ export async function retrieveMemory(options: {
     if (folders >= limits.maxFolders || evaluated >= limits.maxNodes) { result.limited = true; break; }
     folders++;
     options.onTrace?.({ phase: "folder", path: next.path });
-    options.onProgress?.(`Jev está explorando a memória (${folders} pastas)`);
+    options.onProgress?.(`Decisions está explorando a memória (${folders} pastas)`);
     const all = options.browser.list(next.path);
     const nodes = all.slice(0, limits.maxNodes - evaluated);
     if (nodes.length < all.length) result.limited = true;
@@ -118,7 +118,7 @@ export async function retrieveMemory(options: {
     const content = options.browser.read(candidate.path);
     if (chars + content.length > limits.maxChars) { omit("Documento inteiro não cabe no orçamento inicial; pode ser solicitado na segunda consulta."); continue; }
     chars += content.length;
-    const source = forced(candidate.path) ? "identity" : "jev";
+    const source = forced(candidate.path) ? "identity" : "decisions";
     result.files.push({ ...candidate, content, complete: true, source });
     options.onTrace?.({ phase: "selected", path: candidate.path, chars: content.length, source });
   }
@@ -129,6 +129,6 @@ export async function retrieveMemory(options: {
 
 function requiredProbability(values: Record<string, number>, key: string): number {
   const value = values[key];
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) throw new Error("Decisão Jev inválida ou ausente.");
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) throw new Error("Avaliação da Decisions API inválida ou ausente.");
   return value;
 }

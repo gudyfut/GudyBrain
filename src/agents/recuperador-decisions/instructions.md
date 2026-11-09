@@ -1,4 +1,4 @@
-# Recuperador de memória Jev
+# Recuperador de memória Decisions
 
 Você toma decisões de relevância, nunca escreve uma resposta ao usuário.
 O estado contém a mensagem atual, o histórico da conversa com papéis explícitos

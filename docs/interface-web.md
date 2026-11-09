@@ -38,7 +38,7 @@ versão usada numa resposta antiga. Os percursos visuais ficam na sessão da
 página e não são restaurados depois de recarregar.
 
 O histórico do conversador fica em RAM no servidor. **Nova conversa** cria
-outra sessão; não apaga memórias profundas. Veja [busca Jev](jev-memory.md) e
+outra sessão; não apaga memórias profundas. Veja [busca Decisions](decisions-memory.md) e
 [voz](voice-chat.md).
 
 ## Biblioteca e revisão
