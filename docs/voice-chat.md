@@ -51,6 +51,8 @@ gravações recuperáveis pelo app; não substitui a política de retenção da 
 
 Pedidos que dependem de memória são delegados ao agente local. O resultado é
 entregue em trechos ao GPT-Live, que o comunica com suas próprias palavras.
+A consulta começa enquanto o serviço confirma o aviso de espera. A entrega do
+resultado exige tanto a conclusão da busca quanto a confirmação desse aviso.
 Uma correção enquanto a consulta está pendente cancela a execução anterior e
 impede a entrega de seu resultado atrasado. A voz não tem ferramentas para
 escrever arquivos, aprovar propostas ou executar comandos.

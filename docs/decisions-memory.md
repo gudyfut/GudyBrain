@@ -24,13 +24,20 @@ e a [decisão arquitetural](adr/0005-selecao-memoria-via-decisions.md).
    nomes/apelidos. Um predicado avalia se consultar memória profunda é útil.
    A busca começa com probabilidade ≥ 0,50 ou com uma identidade mencionada.
 3. **Navegação progressiva.** Decisions avalia os filhos das pastas visitadas em lotes
-   de até 40. Pastas ≥ 0,35 e arquivos ≥ 0,55 avançam; caminhos de identidades
-   mencionadas têm prioridade mesmo abaixo desses limiares.
+   de até 40, reunindo até três pastas pendentes por rodada e executando até três
+   chamadas simultâneas. Reutiliza os metadados do índice daquele turno, sem reler
+   as pastas. Pastas ≥ 0,35 e arquivos ≥ 0,55 avançam; caminhos de identidades
+   mencionadas têm prioridade mesmo abaixo desses limiares. Os limites são
+   reservados antes das chamadas e os resultados aplicados em ordem determinística.
+   Com orçamento esgotado, a janela de três pastas pode escolher uma fronteira
+   diferente da navegação estritamente sequencial; a busca sinaliza essa limitação.
 4. **Leitura integral.** O código lê os arquivos escolhidos completos. Decisions recebe
    metadados na navegação, não os corpos desses documentos.
 5. **Conferência pelo conversador.** GPT recebe documentos já lidos e uma lista
    curta de candidatos. Pode pedir outros arquivos, explorar pastas ou refinar
    a consulta. Essa inspeção também acontece quando a triagem foi negativa.
+   Se todos os documentos indexados já foram lidos ou solicitados, a inspeção
+   adicional é dispensada; omissões por orçamento continuam explícitas na resposta.
 6. **Resposta.** GPT recebe o contexto final, arquivos omitidos e indicação de
    limites. A resposta chega em fragmentos; o turno só entra no histórico após
    conclusão confirmada.
@@ -63,6 +70,7 @@ O código valida os caminhos; não há ferramentas de sistema expostas ao GPT.
 | --- | --- |
 | Índice local | 2.000 nós, 200 pastas e profundidade 15 |
 | Seleção inicial Decisions | 40 pastas, 1.000 nós avaliados, 16 arquivos, 60.000 caracteres |
+| Paralelismo Decisions | Até 3 requisições, cada uma com até 40 perguntas |
 | Candidatos por inspeção GPT | Até 24 arquivos e 24 pastas |
 | Pedidos por rodada | Até 8 arquivos e 4 pastas |
 | Rodadas de inspeção | Até 4 |
@@ -93,7 +101,13 @@ A seleção rejeita caminhos externos, links simbólicos e junctions.
 
 Falhas e cancelamentos não viram uma decisão de “não buscar”, nem gravam um
 turno incompleto no histórico. Não há retry automático ou troca silenciosa de
-provedor. A interface pode exibir texto parcial antes de uma falha.
+provedor. Uma falha em um lote cancela as chamadas irmãs; resultados tardios não
+entram no contexto. A interface pode exibir texto parcial antes de uma falha.
+
+`npm run check:latency` compara navegação serial e otimizada com atraso artificial
+e documentos fictícios, além de verificar concorrência, limites e cancelamento.
+Os tempos desse teste não estimam a latência dos provedores. O índice continua
+sendo reconstruído em cada turno para refletir alterações de memória.
 
 O transporte chama `POST https://api.openai.com/v1/responses` com OAuth,
 `store: false`, `stream: true` e contexto explícito, conforme a

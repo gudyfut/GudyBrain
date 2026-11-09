@@ -221,13 +221,26 @@ export class LiveController {
         await this.append("session.commentary.append", task.id, "Não recebi a pergunta completa. Peça ao usuário que a repita.", abort.signal);
         return;
       }
-      await this.append("session.thinking.append", task.id, "Consultando a memória. Ainda não há resultado confirmado.", abort.signal);
-      if (!valid()) return;
-      const result = await this.options.query(context.input, context.history, abort.signal, (event) => {
-        if (!valid()) return;
-        if (event.type === "retrieval_trace") this.emit({ type: "retrieval", event: event.event });
-        if (event.type === "retrieval") { this.activity = event.message; this.publish(); }
+      // Start retrieval while Live acknowledges the status message. Both must
+      // succeed before any confirmed result is handed to the voice model.
+      const workAbort = new AbortController();
+      const workSignal = AbortSignal.any([abort.signal, workAbort.signal]);
+      const thinking = this.append("session.thinking.append", task.id, "Consultando a memória. Ainda não há resultado confirmado.", workSignal);
+      const query = Promise.resolve().then(() => {
+        workSignal.throwIfAborted();
+        return this.options.query(context.input, context.history, workSignal, (event) => {
+          if (!valid() || workSignal.aborted) return;
+          if (event.type === "retrieval_trace") this.emit({ type: "retrieval", event: event.event });
+          if (event.type === "retrieval") { this.activity = event.message; this.publish(); }
+        });
       });
+      let result: string;
+      try { [, result] = await Promise.all([thinking, query]); }
+      catch (error) {
+        // Cancel the sibling; keep the job signal usable for the failure notice.
+        workAbort.abort();
+        throw error;
+      }
       if (!valid()) return;
       for (const chunk of voiceChunks(result)) {
         if (!valid()) return;

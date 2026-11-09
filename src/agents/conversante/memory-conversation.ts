@@ -77,10 +77,14 @@ export class MemoryConversation {
       let lookupQuery = `${input} ${recentUser}`.trim();
       const expanded = new Set<string>();
       for (let round = 1; round <= 4; round++) {
+        const excluded = new Set([...requested, ...retrieval.files.map((file) => file.path)]);
+        // Empty folders cannot supply new context. Only skip the model when
+        // every indexed document was read or explicitly omitted after a request.
+        if (!index.nodes.some((node) => node.kind === "file" && !excluded.has(node.path))) break;
         emit({ type: "retrieval", message: "Conferindo se faltam documentos integrais para responder" });
         const found = locateMemory(index, lookupQuery, {
           scopes, preferred: [...preferred, ...(retrieval.omitted ?? []).map((item) => item.path)],
-          exclude: new Set([...requested, ...retrieval.files.map((file) => file.path)]),
+          exclude: excluded,
         });
         const allowedFiles = new Set(found.files.map((node) => node.path));
         const allowedFolders = new Set(found.folders.map((node) => node.path));

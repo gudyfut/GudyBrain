@@ -95,6 +95,53 @@ assert.ok(voiceChunks(long).every((chunk) => Buffer.byteLength(chunk) <= 450));
 }
 
 {
+  let calls = 0;
+  const h = harness({ query: async () => { calls++; return "Resultado confirmado após a busca"; } }, false);
+  h.controller.ready();
+  transcript(h.controller, "user", "Consulte a memória"); delegate(h.controller);
+  await until(() => calls === 1);
+  const thinking = h.sent.find((event) => event.type === "session.thinking.append")!;
+  assert.ok(thinking, "consulta inicia antes da confirmação do aviso de espera");
+  await delay(5);
+  assert.equal(h.sent.some((event) => event.type === "session.commentary.append"), false, "resultado aguarda as duas confirmações");
+  h.controller.receive({ type: "session.thinking.appended", client_event_id: thinking.event_id });
+  await until(() => h.sent.some((event) => event.content === "Resultado confirmado após a busca"));
+  const answer = h.sent.find((event) => event.type === "session.commentary.append")!;
+  h.controller.receive({ type: "session.commentary.appended", client_event_id: answer.event_id });
+  await h.controller.close();
+}
+
+{
+  let querySignal: AbortSignal | undefined;
+  let release!: (text: string) => void;
+  const h = harness({ query: (_input, _history, signal) => {
+    querySignal = signal;
+    return new Promise((resolve) => { release = resolve; });
+  } }, false);
+  transcript(h.controller, "user", "Consulte a memória"); delegate(h.controller);
+  await until(() => !!release);
+  const thinking = h.sent.find((event) => event.type === "session.thinking.append")!;
+  h.controller.receive({ type: "error", client_event_id: thinking.event_id });
+  await until(() => querySignal!.aborted);
+  release("RESULTADO APÓS FALHA DO AVISO");
+  await delay(5);
+  assert.equal(h.sent.some((event) => event.content === "RESULTADO APÓS FALHA DO AVISO"), false);
+  await h.controller.close();
+}
+
+{
+  // A query failure must be handled immediately even while thinking lacks ack.
+  const h = harness({ query: async () => { throw new Error("falha sintética"); } }, false);
+  transcript(h.controller, "user", "Consulte a memória"); delegate(h.controller);
+  await until(() => h.sent.some((event) => event.type === "session.commentary.append"));
+  assert.match(h.controller.snapshot().error!, /Não foi possível/);
+  const failure = h.sent.find((event) => event.type === "session.commentary.append")!;
+  assert.ok(String(failure.content).includes("não invente"));
+  h.controller.receive({ type: "session.commentary.appended", client_event_id: failure.event_id });
+  await h.controller.close();
+}
+
+{
   const calls: { input: string; signal: AbortSignal; resolve: (text: string) => void }[] = [];
   const h = harness({ query: (input, _history, signal) => new Promise((resolve) => { calls.push({ input, signal, resolve }); }) });
   h.controller.ready();

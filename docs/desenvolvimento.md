@@ -27,6 +27,7 @@ usando `.next`. Use um checkout separado ou encerre o servidor antes.
 | Análise de calls | `npm run check:calls` |
 | Aprovação e aplicação na web | `npm run check:curation` |
 | Recuperação Decisions | `npm run check:retrieval` |
+| Latência simulada, paralelismo e cancelamento da busca | `npm run check:latency` |
 | Contratos HTTP Decisions, recusas e cancelamento | `npm run check:decisions` |
 | Escrita contratual | `npm run check:writing` |
 | Seleção de fatos do chat | `npm run check:selection` |

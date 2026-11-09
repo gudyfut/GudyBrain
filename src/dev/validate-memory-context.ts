@@ -61,6 +61,7 @@ const conversation = new MemoryConversation({ browser, evaluate: low,
 let streamed = "";
 await conversation.run("O que sabe sobre Beto?", { onContent: (chunk) => { streamed += chunk; }, onStep: (event) => { if (event.type === "retrieval_trace") trace.push(event.event); } });
 assert.equal(streamed, "Ele prefere trilhas.");
+assert.equal(inspections, 1, "não repete inspeção depois de carregar todos os documentos integrais");
 const decision = trace.find((event) => event.phase === "decision");
 assert.ok(decision?.phase === "decision" && decision.searched && decision.probability === .1 && decision.reason?.includes("apelido"));
 assert.ok(trace.some((event) => event.phase === "request"));
